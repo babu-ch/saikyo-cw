@@ -85,18 +85,22 @@ interface ReactionUser {
 }
 
 function getReactionUsers(reactionList: Element): ReactionUser[] {
-  const userEls = reactionList.querySelectorAll(
-    ".reactionUserListTooltip__userName",
+  // li.reactionUserListTooltip__item から取得
+  const items = reactionList.querySelectorAll(
+    "li.reactionUserListTooltip__item",
   );
-  return Array.from(userEls).map((el) => {
-    const name = el.textContent?.trim() ?? "";
-    const userItem =
-      el.closest("[data-aid]") ?? el.closest("[data-account-id]");
+  return Array.from(items).map((li) => {
+    // 名前: .reactionUserListTooltip__userName のテキストから末尾「さん」を除去
+    let name =
+      li.querySelector(".reactionUserListTooltip__userName")?.textContent?.trim() ?? "";
+    name = name.replace(/さん$/, "");
+
+    // accountId: data-cwui-lt-value または img[data-aid]
     const accountId =
-      userItem?.getAttribute("data-aid") ??
-      userItem?.getAttribute("data-account-id") ??
-      el.getAttribute("data-aid") ??
+      li.getAttribute("data-cwui-lt-value") ??
+      li.querySelector("img[data-aid]")?.getAttribute("data-aid") ??
       null;
+
     return { name, accountId };
   });
 }
