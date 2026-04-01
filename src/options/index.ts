@@ -1,8 +1,14 @@
 import { PLUGIN_CONFIGS } from "../shared/plugin-configs";
 import {
+  ALL_BUTTON_METAS,
+  getDefaultEnabledIds,
+} from "../shared/input-tools-buttons";
+import {
   getPluginSettings,
+  getPluginConfig,
   setPluginEnabled,
   setPluginApiKey,
+  setPluginConfig,
   type PluginSettings,
 } from "../shared/storage";
 
@@ -52,7 +58,6 @@ function createPluginCard(
     </label>
   `;
 
-  // Toggle handler
   const checkbox = card.querySelector<HTMLInputElement>(
     '.toggle input[type="checkbox"]',
   )!;
@@ -61,7 +66,6 @@ function createPluginCard(
     showStatus(`${config.name} を${checkbox.checked ? "有効" : "無効"}にしました`);
   });
 
-  // API key handler
   if (config.requiresApiKey) {
     const apiKeyInput = card.querySelector<HTMLInputElement>(".api-key-input")!;
     let debounce: ReturnType<typeof setTimeout>;
@@ -77,6 +81,60 @@ function createPluginCard(
   return card;
 }
 
+async function createInputToolsConfig(): Promise<HTMLElement> {
+  const section = document.createElement("div");
+  section.className = "plugin-card";
+
+  const config = await getPluginConfig<{ enabledButtons?: string[] }>(
+    "input-tools",
+  );
+  const enabledIds = new Set(
+    config?.enabledButtons ?? getDefaultEnabledIds(),
+  );
+
+  section.innerHTML = `
+    <div class="plugin-info">
+      <div class="plugin-name">Input Tools - ボタン設定</div>
+      <div class="plugin-description">表示するボタンを選択</div>
+      <div class="button-config" style="margin-top: 12px;"></div>
+    </div>
+  `;
+
+  const container = section.querySelector(".button-config")!;
+
+  for (const meta of ALL_BUTTON_METAS) {
+    const label = document.createElement("label");
+    label.className = "button-config-item";
+
+    const typeLabel =
+      meta.type === "tag" ? "タグ" : meta.type === "emo" ? "絵文字" : "アクション";
+
+    label.innerHTML = `
+      <input type="checkbox" ${enabledIds.has(meta.id) ? "checked" : ""} data-button-id="${meta.id}">
+      <span class="button-config-label">${meta.label}</span>
+      <span class="button-config-desc">${meta.description}</span>
+      <span class="button-config-type">${typeLabel}</span>
+    `;
+
+    const cb = label.querySelector<HTMLInputElement>("input")!;
+    cb.addEventListener("change", async () => {
+      if (cb.checked) {
+        enabledIds.add(meta.id);
+      } else {
+        enabledIds.delete(meta.id);
+      }
+      await setPluginConfig("input-tools", {
+        enabledButtons: Array.from(enabledIds),
+      });
+      showStatus("ボタン設定を保存しました");
+    });
+
+    container.appendChild(label);
+  }
+
+  return section;
+}
+
 async function render(): Promise<void> {
   const container = document.getElementById("plugin-list");
   if (!container) return;
@@ -86,6 +144,12 @@ async function render(): Promise<void> {
   for (const config of PLUGIN_CONFIGS) {
     const card = createPluginCard(config, settings[config.id]);
     container.appendChild(card);
+
+    // Input Toolsの後にボタン設定を追加
+    if (config.id === "input-tools") {
+      const btnConfig = await createInputToolsConfig();
+      container.appendChild(btnConfig);
+    }
   }
 }
 

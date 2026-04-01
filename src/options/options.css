@@ -127,6 +127,45 @@ h1 {
   transform: translateX(20px);
 }
 
+/* Button config */
+.button-config-item {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 6px 0;
+  cursor: pointer;
+  font-size: 13px;
+  border-bottom: 1px solid #f0f0f0;
+}
+
+.button-config-item:last-child {
+  border-bottom: none;
+}
+
+.button-config-item input[type="checkbox"] {
+  width: 16px;
+  height: 16px;
+  cursor: pointer;
+}
+
+.button-config-label {
+  min-width: 48px;
+  font-weight: 600;
+}
+
+.button-config-desc {
+  flex: 1;
+  color: #666;
+}
+
+.button-config-type {
+  font-size: 11px;
+  color: #999;
+  background: #f0f0f0;
+  padding: 1px 6px;
+  border-radius: 3px;
+}
+
 .status {
   text-align: center;
   font-size: 13px;

@@ -1,4 +1,6 @@
-import { wrapSelection, insertAtCursor } from "../../../shared/react-input";
+import { getPluginConfig } from "../../../shared/storage";
+import { ALL_BUTTON_METAS, getDefaultEnabledIds } from "../../../shared/input-tools-buttons";
+import { getAction } from "./buttons";
 
 const STYLE_ID = "scw-input-tools-style";
 const ICONS_ID = "scw-input-tools-icons";
@@ -7,25 +9,9 @@ const TAG_CLASS = "scw-input-tools__tag";
 const EMO_CLASS = "scw-input-tools__emo";
 const ACTION_CLASS = "scw-input-tools__action";
 
-interface ToolButton {
-  label: string;
-  ariaLabel: string;
-  type: "tag" | "emo" | "action";
-  action: (textarea: HTMLTextAreaElement) => void;
+interface InputToolsConfig {
+  enabledButtons?: string[];
 }
-
-const BUTTONS: ToolButton[] = [
-  { label: "code", ariaLabel: "code：選択したメッセージをcodeタグで囲みます", type: "tag", action: (ta) => wrapSelection(ta, "[code]", "[/code]") },
-  { label: "info", ariaLabel: "info：選択したメッセージをinfoタグで囲みます", type: "tag", action: (ta) => wrapSelection(ta, "[info]", "[/info]") },
-  { label: "title", ariaLabel: "title：選択したメッセージをtitleタグで囲みます", type: "tag", action: (ta) => wrapSelection(ta, "[info][title]", "[/title][/info]") },
-  { label: "hr", ariaLabel: "hr：メッセージにhrタグを挿入します", type: "tag", action: (ta) => insertAtCursor(ta, "[hr]") },
-  { label: "bow", ariaLabel: "bow：メッセージにおじぎエモーティコンを挿入します", type: "emo", action: (ta) => insertAtCursor(ta, "(bow)") },
-  { label: "clap", ariaLabel: "clap：メッセージに拍手エモーティコンを挿入します", type: "emo", action: (ta) => insertAtCursor(ta, "(clap)") },
-  { label: "roger", ariaLabel: "roger：メッセージに了解エモーティコンを挿入します", type: "emo", action: (ta) => insertAtCursor(ta, "(roger)") },
-  { label: "congrats", ariaLabel: "congrats：メッセージにおめでとうエモーティコンを挿入します", type: "emo", action: (ta) => insertAtCursor(ta, "(congrats)") },
-  { label: "love", ariaLabel: "love：メッセージにハートエモーティコンを挿入します", type: "emo", action: (ta) => insertAtCursor(ta, "(love)") },
-  { label: "TO ALL", ariaLabel: "TO ALL：全員にTOを付けます", type: "action", action: () => selectAllTo() },
-];
 
 const STYLES = `
   #${ICONS_ID} {
@@ -63,17 +49,9 @@ const STYLES = `
     padding: 2px 4px;
   }
 
-  .${TAG_CLASS} {
-    background-color: #444444;
-  }
-
-  .${EMO_CLASS} {
-    background-color: #ffa000;
-  }
-
-  .${ACTION_CLASS} {
-    background-color: #5c8a8a;
-  }
+  .${TAG_CLASS} { background-color: #444444; }
+  .${EMO_CLASS} { background-color: #ffa000; }
+  .${ACTION_CLASS} { background-color: #5c8a8a; }
 `;
 
 function injectStyles(): void {
@@ -88,36 +66,42 @@ function getChatTextarea(): HTMLTextAreaElement | null {
   return document.querySelector("#_chatText") as HTMLTextAreaElement | null;
 }
 
-export function injectToolbar(): void {
+export async function injectToolbar(): Promise<void> {
   if (document.getElementById(ICONS_ID)) return;
 
-  // 既存拡張と同じ位置: アイコン列<ul>の後ろの兄弟として挿入
-  // <ul class="sc-fiCwlc ..."> が絵文字/TO/ファイル等のアイコン列
   const emoticon = document.querySelector("#_emoticon");
   if (!emoticon) return;
-
-  // #_emoticon → button → div → div._showDescription → ul（アイコン列）
   const iconsUl = emoticon.closest("ul");
   if (!iconsUl) return;
+
+  const config = await getPluginConfig<InputToolsConfig>("input-tools");
+  const enabledIds = config?.enabledButtons ?? getDefaultEnabledIds();
+  const enabledSet = new Set(enabledIds);
+
+  const buttons = ALL_BUTTON_METAS.filter((b) => enabledSet.has(b.id));
+  if (buttons.length === 0) return;
 
   injectStyles();
 
   const ul = document.createElement("ul");
   ul.id = ICONS_ID;
 
-  for (const btn of BUTTONS) {
+  for (const meta of buttons) {
+    const action = getAction(meta.id);
+    if (!action) continue;
+
     const li = document.createElement("li");
     li.className = `_showDescription ${ICON_CLASS}`;
     li.setAttribute("role", "button");
-    li.setAttribute("aria-label", btn.ariaLabel);
+    li.setAttribute("aria-label", meta.description);
 
-    const spanClass = btn.type === "tag" ? TAG_CLASS
-      : btn.type === "emo" ? EMO_CLASS
+    const spanClass = meta.type === "tag" ? TAG_CLASS
+      : meta.type === "emo" ? EMO_CLASS
       : ACTION_CLASS;
 
     const span = document.createElement("span");
     span.className = spanClass;
-    span.textContent = btn.label;
+    span.textContent = meta.label;
     li.appendChild(span);
 
     li.addEventListener("click", (e) => {
@@ -126,28 +110,14 @@ export function injectToolbar(): void {
       const ta = getChatTextarea();
       if (ta) {
         ta.focus();
-        btn.action(ta);
+        action(ta);
       }
     });
 
     ul.appendChild(li);
   }
 
-  // アイコン列<ul>の後ろに兄弟要素として挿入
   iconsUl.insertAdjacentElement("afterend", ul);
-}
-
-function selectAllTo(): void {
-  const toBtn = document.querySelector("#_to") as HTMLElement | null;
-  if (toBtn) {
-    toBtn.click();
-    setTimeout(() => {
-      const checkboxes = document.querySelectorAll<HTMLInputElement>(
-        '#_toList input[type="checkbox"]:not(:checked)',
-      );
-      checkboxes.forEach((cb) => cb.click());
-    }, 200);
-  }
 }
 
 export function removeToolbar(): void {
