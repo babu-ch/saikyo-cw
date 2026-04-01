@@ -1,10 +1,9 @@
 import { getPluginConfig, setPluginConfig } from "../../../shared/storage";
 import { insertAtCursor } from "../../../shared/react-input";
-import { CW } from "../../../shared/chatwork-selectors";
 
 const PLUGIN_ID = "mention-group";
 const STYLE_ID = "scw-mention-group-style";
-const PICKER_CLASS = "scw-mention-group__picker";
+const PICKER_ID = "scw-mention-group-picker";
 const DROPDOWN_CLASS = "scw-mention-group__dropdown";
 const DROPDOWN_ITEM_CLASS = "scw-mention-group__dropdown-item";
 const DROPDOWN_EMPTY_CLASS = "scw-mention-group__dropdown-empty";
@@ -26,22 +25,36 @@ const EDITOR_LABEL_CLASS = "scw-mention-group__editor-label";
 const EDITOR_EMPTY_CLASS = "scw-mention-group__editor-empty";
 const EDITOR_ROW_CLASS = "scw-mention-group__editor-row";
 
+// ピル型アイコン: 既存拡張のタグ/絵文字と同じトンマナ
+// ドロップダウン・モーダル: ダークモード対応
 const STYLES = `
-  .${PICKER_CLASS} {
-    display: inline-flex;
+  /* ピル: ツールバーに馴染むスタイル */
+  #${PICKER_ID} {
     align-items: center;
-    justify-content: center;
-    width: 28px;
-    height: 28px;
-    border: 1px solid #ccc;
-    border-radius: 4px;
-    background: #f8f8f8;
     cursor: pointer;
-    font-size: 14px;
-    margin-left: 4px;
+    display: flex;
+    height: 24px;
+    opacity: 0.8;
+    margin: 0 4px;
     position: relative;
   }
-  .${PICKER_CLASS}:hover { background: #e8e8e8; }
+  #${PICKER_ID}:hover { opacity: 1; }
+
+  #${PICKER_ID} > span {
+    -webkit-user-select: none;
+    user-select: none;
+    align-items: center;
+    border-radius: 2px;
+    color: #ffffff;
+    display: flex;
+    font-family: -apple-system, BlinkMacSystemFont, ".SFNSDisplay-Regular",
+                 "Helvetica Neue", "Hiragino Sans", "ヒラギノ角ゴシック",
+                 Meiryo, "メイリオ", sans-serif;
+    font-size: 12px;
+    line-height: 12px;
+    padding: 2px 4px;
+    background-color: #5c8a8a;
+  }
 
   .${DROPDOWN_CLASS} {
     position: absolute;
@@ -95,6 +108,7 @@ const STYLES = `
     max-height: 80vh;
     overflow-y: auto;
     box-shadow: 0 8px 32px rgba(0,0,0,0.2);
+    color: #333;
   }
 
   .${MODAL_TITLE_CLASS} { margin: 0 0 16px; font-size: 18px; }
@@ -180,83 +194,46 @@ const STYLES = `
   .${EDITOR_LABEL_CLASS}:hover { background: #f5f5f5; }
 
   .${EDITOR_EMPTY_CLASS} { font-size: 12px; color: #999; padding: 8px; }
-
   .${EDITOR_ROW_CLASS} { display: flex; gap: 4px; margin-top: 8px; }
 
   /* ダークモード */
-  body.mainContentArea--dark .${PICKER_CLASS},
-  body[data-theme="dark"] .${PICKER_CLASS},
-  .darkMode .${PICKER_CLASS} {
-    background: #3a3a3a;
-    border-color: #555;
-  }
-  body.mainContentArea--dark .${PICKER_CLASS}:hover,
-  body[data-theme="dark"] .${PICKER_CLASS}:hover,
-  .darkMode .${PICKER_CLASS}:hover { background: #4a4a4a; }
-
   body.mainContentArea--dark .${DROPDOWN_CLASS},
   body[data-theme="dark"] .${DROPDOWN_CLASS},
   .darkMode .${DROPDOWN_CLASS} {
-    background: #2a2a2a;
-    border-color: #444;
+    background: #2a2a2a; border-color: #444;
   }
-
   body.mainContentArea--dark .${DROPDOWN_ITEM_CLASS},
   body[data-theme="dark"] .${DROPDOWN_ITEM_CLASS},
   .darkMode .${DROPDOWN_ITEM_CLASS} {
-    border-bottom-color: #3a3a3a;
-    color: #ddd;
+    border-bottom-color: #3a3a3a; color: #ddd;
   }
   body.mainContentArea--dark .${DROPDOWN_ITEM_CLASS}:hover,
   body[data-theme="dark"] .${DROPDOWN_ITEM_CLASS}:hover,
   .darkMode .${DROPDOWN_ITEM_CLASS}:hover { background: #333; }
-
   body.mainContentArea--dark .${DROPDOWN_MANAGE_CLASS},
   body[data-theme="dark"] .${DROPDOWN_MANAGE_CLASS},
   .darkMode .${DROPDOWN_MANAGE_CLASS} { background: #333; }
-
   body.mainContentArea--dark .${MODAL_CLASS},
   body[data-theme="dark"] .${MODAL_CLASS},
-  .darkMode .${MODAL_CLASS} {
-    background: #2a2a2a;
-    color: #ddd;
-  }
-
+  .darkMode .${MODAL_CLASS} { background: #2a2a2a; color: #ddd; }
   body.mainContentArea--dark .${GROUP_CARD_CLASS},
   body[data-theme="dark"] .${GROUP_CARD_CLASS},
   .darkMode .${GROUP_CARD_CLASS} { border-color: #444; }
-
   body.mainContentArea--dark .${INPUT_CLASS},
   body[data-theme="dark"] .${INPUT_CLASS},
-  .darkMode .${INPUT_CLASS} {
-    background: #333;
-    border-color: #555;
-    color: #ddd;
-  }
-
+  .darkMode .${INPUT_CLASS} { background: #333; border-color: #555; color: #ddd; }
   body.mainContentArea--dark .${BTN_CLASS},
   body[data-theme="dark"] .${BTN_CLASS},
-  .darkMode .${BTN_CLASS} {
-    background: #3a3a3a;
-    border-color: #555;
-    color: #ccc;
-  }
+  .darkMode .${BTN_CLASS} { background: #3a3a3a; border-color: #555; color: #ccc; }
   body.mainContentArea--dark .${BTN_CLASS}:hover,
   body[data-theme="dark"] .${BTN_CLASS}:hover,
   .darkMode .${BTN_CLASS}:hover { background: #4a4a4a; }
-
   body.mainContentArea--dark .${BTN_PRIMARY_CLASS},
   body[data-theme="dark"] .${BTN_PRIMARY_CLASS},
-  .darkMode .${BTN_PRIMARY_CLASS} {
-    background: #3a8eef;
-    border-color: #3a8eef;
-    color: white;
-  }
-
+  .darkMode .${BTN_PRIMARY_CLASS} { background: #3a8eef; border-color: #3a8eef; color: white; }
   body.mainContentArea--dark .${EDITOR_CLASS},
   body[data-theme="dark"] .${EDITOR_CLASS},
   .darkMode .${EDITOR_CLASS} { border-color: #444; }
-
   body.mainContentArea--dark .${EDITOR_LABEL_CLASS}:hover,
   body[data-theme="dark"] .${EDITOR_LABEL_CLASS}:hover,
   .darkMode .${EDITOR_LABEL_CLASS}:hover { background: #3a3a3a; }
@@ -285,17 +262,12 @@ async function saveGroups(groups: MentionGroup[]): Promise<void> {
   await setPluginConfig(PLUGIN_ID, { groups });
 }
 
-function buildMentionText(members: MemberInfo[]): string {
-  return members.map((m) => `[To:${m.accountId}]${m.name}さん`).join(" ");
-}
-
 function insertMention(members: MemberInfo[]): void {
-  const chatInput = document.querySelector(CW.CHAT_INPUT) as
-    | HTMLTextAreaElement
-    | null;
+  const chatInput = document.querySelector("#_chatText") as HTMLTextAreaElement | null;
   if (!chatInput) return;
+  const text = members.map((m) => `[To:${m.accountId}]${m.name}さん`).join(" ");
   chatInput.focus();
-  insertAtCursor(chatInput, buildMentionText(members) + "\n");
+  insertAtCursor(chatInput, text + "\n");
 }
 
 function createDropdown(groups: MentionGroup[]): HTMLElement {
@@ -344,15 +316,13 @@ function createDropdown(groups: MentionGroup[]): HTMLElement {
 
 function getCurrentRoomMembers(): MemberInfo[] {
   const members: MemberInfo[] = [];
-  const memberElements = document.querySelectorAll(
+  document.querySelectorAll(
     '#_memberList li[data-account-id], [data-testid="room-member-list"] li[data-account-id]',
-  );
-  memberElements.forEach((el) => {
+  ).forEach((el) => {
     const accountId = el.getAttribute("data-account-id");
     const name =
       el.querySelector(".roomMemberListItem__name")?.textContent?.trim() ??
-      el.getAttribute("data-account-name") ??
-      "";
+      el.getAttribute("data-account-name") ?? "";
     if (accountId) members.push({ accountId, name });
   });
   return members;
@@ -367,7 +337,6 @@ async function showGroupManager(): Promise<void> {
 
   const overlay = document.createElement("div");
   overlay.className = OVERLAY_CLASS;
-
   const modal = document.createElement("div");
   modal.className = MODAL_CLASS;
 
@@ -384,7 +353,6 @@ async function showGroupManager(): Promise<void> {
         <button id="scw-cancel-groups" class="${BTN_CLASS}">キャンセル</button>
       </div>
     `;
-
     const list = modal.querySelector("#scw-group-list")!;
 
     for (let i = 0; i < editingGroups.length; i++) {
@@ -393,51 +361,35 @@ async function showGroupManager(): Promise<void> {
       groupEl.className = GROUP_CARD_CLASS;
       groupEl.innerHTML = `
         <div class="${GROUP_HEADER_CLASS}">
-          <input type="text" value="${group.name}" placeholder="グループ名"
-                 data-group-index="${i}" class="${INPUT_CLASS}">
+          <input type="text" value="${group.name}" placeholder="グループ名" data-group-index="${i}" class="${INPUT_CLASS}">
           <button data-delete-group="${i}" class="${BTN_CLASS} ${BTN_DANGER_CLASS}">削除</button>
         </div>
-        <div class="${MEMBERS_INFO_CLASS}">
-          メンバー: ${group.members.map((m) => m.name).join(", ") || "未設定"}
-        </div>
+        <div class="${MEMBERS_INFO_CLASS}">メンバー: ${group.members.map((m) => m.name).join(", ") || "未設定"}</div>
         <div class="${EDIT_LINK_CLASS}" data-edit-members="${i}">メンバーを編集...</div>
       `;
-
-      const nameInput = groupEl.querySelector<HTMLInputElement>("input")!;
-      nameInput.addEventListener("input", () => {
-        editingGroups[i].name = nameInput.value;
+      groupEl.querySelector<HTMLInputElement>("input")!.addEventListener("input", (ev) => {
+        editingGroups[i].name = (ev.target as HTMLInputElement).value;
       });
-
-      groupEl.querySelector(`[data-delete-group="${i}"]`)!
-        .addEventListener("click", () => { editingGroups.splice(i, 1); renderModal(); });
-
-      groupEl.querySelector(`[data-edit-members="${i}"]`)!
-        .addEventListener("click", () => { showMemberEditor(groupEl, i, roomMembers); });
-
+      groupEl.querySelector(`[data-delete-group="${i}"]`)!.addEventListener("click", () => {
+        editingGroups.splice(i, 1); renderModal();
+      });
+      groupEl.querySelector(`[data-edit-members="${i}"]`)!.addEventListener("click", () => {
+        showMemberEditor(groupEl, i, roomMembers);
+      });
       list.appendChild(groupEl);
     }
 
     modal.querySelector("#scw-add-group")!.addEventListener("click", () => {
-      editingGroups.push({ name: "", members: [] });
-      renderModal();
+      editingGroups.push({ name: "", members: [] }); renderModal();
     });
-
     modal.querySelector("#scw-save-groups")!.addEventListener("click", async () => {
       editingGroups = editingGroups.filter((g) => g.name.trim());
-      await saveGroups(editingGroups);
-      overlay.remove();
+      await saveGroups(editingGroups); overlay.remove();
     });
-
-    modal.querySelector("#scw-cancel-groups")!.addEventListener("click", () => {
-      overlay.remove();
-    });
+    modal.querySelector("#scw-cancel-groups")!.addEventListener("click", () => overlay.remove());
   }
 
-  function showMemberEditor(
-    card: Element,
-    groupIndex: number,
-    availableMembers: MemberInfo[],
-  ): void {
+  function showMemberEditor(card: Element, groupIndex: number, availableMembers: MemberInfo[]): void {
     const group = editingGroups[groupIndex];
     const existing = card.querySelector(`.${EDITOR_CLASS}`);
     if (existing) { existing.remove(); return; }
@@ -448,16 +400,12 @@ async function showGroupManager(): Promise<void> {
 
     if (availableMembers.length === 0) {
       editorEl.innerHTML = `
-        <div class="${EDITOR_EMPTY_CLASS}">
-          現在のルームのメンバーが取得できませんでした。<br>
-          手動でアカウントIDを追加できます。
-        </div>
+        <div class="${EDITOR_EMPTY_CLASS}">現在のルームのメンバーが取得できませんでした。<br>手動でアカウントIDを追加できます。</div>
         <div class="${EDITOR_ROW_CLASS}">
           <input type="text" placeholder="アカウントID" id="scw-manual-id" class="${INPUT_CLASS}">
           <input type="text" placeholder="名前" id="scw-manual-name" class="${INPUT_CLASS}">
           <button id="scw-manual-add" class="${BTN_CLASS}">追加</button>
-        </div>
-      `;
+        </div>`;
       editorEl.querySelector("#scw-manual-add")!.addEventListener("click", () => {
         const idInput = editorEl.querySelector<HTMLInputElement>("#scw-manual-id")!;
         const nameInput = editorEl.querySelector<HTMLInputElement>("#scw-manual-name")!;
@@ -470,14 +418,9 @@ async function showGroupManager(): Promise<void> {
       for (const member of availableMembers) {
         const label = document.createElement("label");
         label.className = EDITOR_LABEL_CLASS;
-        label.innerHTML = `
-          <input type="checkbox" ${selectedIds.has(member.accountId) ? "checked" : ""}
-                 data-account-id="${member.accountId}" data-account-name="${member.name}">
-          <span>${member.name}</span>
-        `;
-        const cb = label.querySelector<HTMLInputElement>("input")!;
-        cb.addEventListener("change", () => {
-          if (cb.checked) {
+        label.innerHTML = `<input type="checkbox" ${selectedIds.has(member.accountId) ? "checked" : ""} data-account-id="${member.accountId}"><span>${member.name}</span>`;
+        label.querySelector<HTMLInputElement>("input")!.addEventListener("change", (ev) => {
+          if ((ev.target as HTMLInputElement).checked) {
             group.members.push({ accountId: member.accountId, name: member.name });
           } else {
             group.members = group.members.filter((m) => m.accountId !== member.accountId);
@@ -486,19 +429,16 @@ async function showGroupManager(): Promise<void> {
         editorEl.appendChild(label);
       }
     }
-
     card.appendChild(editorEl);
   }
 
   renderModal();
   overlay.appendChild(modal);
-  overlay.addEventListener("click", (e) => {
-    if (e.target === overlay) overlay.remove();
-  });
+  overlay.addEventListener("click", (e) => { if (e.target === overlay) overlay.remove(); });
   document.body.appendChild(overlay);
 }
 
-export function injectStyles(): void {
+function injectStyles(): void {
   if (document.getElementById(STYLE_ID)) return;
   const style = document.createElement("style");
   style.id = STYLE_ID;
@@ -506,32 +446,57 @@ export function injectStyles(): void {
   document.head.appendChild(style);
 }
 
-export function removeStyles(): void {
-  document.getElementById(STYLE_ID)?.remove();
-}
+export function injectGroupPicker(): void {
+  if (document.getElementById(PICKER_ID)) return;
 
-export function injectGroupPicker(toButton: Element): void {
-  const parent = toButton.parentElement;
-  if (!parent) return;
-  if (parent.querySelector(`.${PICKER_CLASS}`)) return;
+  // Input Toolsの<ul>があればそこに追加、なければアイコン列<ul>の後に独立して配置
+  const targetUl = document.getElementById("scw-input-tools-icons");
+  const emoticon = document.querySelector("#_emoticon");
+  const iconsUl = emoticon?.closest("ul");
+
+  if (!targetUl && !iconsUl) return;
 
   injectStyles();
 
-  const btn = document.createElement("button");
-  btn.className = PICKER_CLASS;
-  btn.title = "グループメンション";
-  btn.textContent = "👥";
+  const li = document.createElement("li");
+  li.id = PICKER_ID;
+  li.className = "_showDescription";
+  li.setAttribute("role", "button");
+  li.setAttribute("aria-label", "グループメンション：登録済みグループのメンバーにまとめてTOを付けます");
 
-  btn.addEventListener("click", async (e) => {
+  const span = document.createElement("span");
+  span.textContent = "group";
+  li.appendChild(span);
+
+  li.addEventListener("click", async (e) => {
     e.preventDefault();
     e.stopPropagation();
-
     document.querySelectorAll(`.${DROPDOWN_CLASS}`).forEach((el) => el.remove());
-
     const groups = await getGroups();
     const dropdown = createDropdown(groups);
-    btn.appendChild(dropdown);
+    li.appendChild(dropdown);
   });
 
-  toButton.insertAdjacentElement("afterend", btn);
+  if (targetUl) {
+    targetUl.appendChild(li);
+  } else if (iconsUl) {
+    // Input Toolsが無い場合、独立した<ul>を作成
+    const ul = document.createElement("ul");
+    ul.style.cssText = "display: flex; align-items: center;";
+    ul.appendChild(li);
+    iconsUl.insertAdjacentElement("afterend", ul);
+  }
+}
+
+export function removeGroupPicker(): void {
+  const picker = document.getElementById(PICKER_ID);
+  // 独立<ul>に入っている場合はulごと消す
+  if (picker?.parentElement?.id !== "scw-input-tools-icons") {
+    picker?.parentElement?.remove();
+  } else {
+    picker?.remove();
+  }
+  document.querySelectorAll(`.${DROPDOWN_CLASS}`).forEach((el) => el.remove());
+  document.querySelectorAll(`.${OVERLAY_CLASS}`).forEach((el) => el.remove());
+  document.getElementById(STYLE_ID)?.remove();
 }

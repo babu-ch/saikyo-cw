@@ -5,12 +5,12 @@ const ICONS_ID = "scw-input-tools-icons";
 const ICON_CLASS = "scw-input-tools__icon";
 const TAG_CLASS = "scw-input-tools__tag";
 const EMO_CLASS = "scw-input-tools__emo";
-const PRIMARY_CLASS = "scw-input-tools__primary";
+const ACTION_CLASS = "scw-input-tools__action";
 
 interface ToolButton {
   label: string;
   ariaLabel: string;
-  type: "tag" | "emo" | "primary";
+  type: "tag" | "emo" | "action";
   action: (textarea: HTMLTextAreaElement) => void;
 }
 
@@ -24,7 +24,7 @@ const BUTTONS: ToolButton[] = [
   { label: "roger", ariaLabel: "roger：メッセージに了解エモーティコンを挿入します", type: "emo", action: (ta) => insertAtCursor(ta, "(roger)") },
   { label: "congrats", ariaLabel: "congrats：メッセージにおめでとうエモーティコンを挿入します", type: "emo", action: (ta) => insertAtCursor(ta, "(congrats)") },
   { label: "love", ariaLabel: "love：メッセージにハートエモーティコンを挿入します", type: "emo", action: (ta) => insertAtCursor(ta, "(love)") },
-  { label: "TO ALL", ariaLabel: "TO ALL：全員にTOを付けます", type: "primary", action: () => selectAllTo() },
+  { label: "TO ALL", ariaLabel: "TO ALL：全員にTOを付けます", type: "action", action: () => selectAllTo() },
 ];
 
 const STYLES = `
@@ -48,7 +48,7 @@ const STYLES = `
 
   .${TAG_CLASS},
   .${EMO_CLASS},
-  .${PRIMARY_CLASS} {
+  .${ACTION_CLASS} {
     -webkit-user-select: none;
     user-select: none;
     align-items: center;
@@ -71,8 +71,8 @@ const STYLES = `
     background-color: #ffa000;
   }
 
-  .${PRIMARY_CLASS} {
-    background-color: #4a9eff;
+  .${ACTION_CLASS} {
+    background-color: #5c8a8a;
   }
 `;
 
@@ -113,7 +113,7 @@ export function injectToolbar(): void {
 
     const spanClass = btn.type === "tag" ? TAG_CLASS
       : btn.type === "emo" ? EMO_CLASS
-      : PRIMARY_CLASS;
+      : ACTION_CLASS;
 
     const span = document.createElement("span");
     span.className = spanClass;

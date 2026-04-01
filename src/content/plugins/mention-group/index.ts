@@ -1,7 +1,6 @@
 import type { CwPlugin } from "../types";
 import { observeDOM } from "../../../shared/mutation-observer";
-import { CW } from "../../../shared/chatwork-selectors";
-import { injectGroupPicker, removeStyles } from "./group-picker";
+import { injectGroupPicker, removeGroupPicker } from "./group-picker";
 
 let observer: MutationObserver | null = null;
 
@@ -12,16 +11,14 @@ export const mentionGroupPlugin: CwPlugin = {
     description: "グループメンションをワンクリックで挿入",
   },
   init() {
-    observer = observeDOM(CW.TO_BUTTON, (el) => {
-      injectGroupPicker(el);
+    // #_emoticon が属するアイコン列<ul>を監視し、ツールバーにピルを注入
+    observer = observeDOM("#_emoticon", () => {
+      injectGroupPicker();
     });
   },
   destroy() {
     observer?.disconnect();
     observer = null;
-    removeStyles();
-    document
-      .querySelectorAll(".scw-mention-group__picker")
-      .forEach((el) => el.remove());
+    removeGroupPicker();
   },
 };
