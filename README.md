@@ -1,27 +1,33 @@
 # ぼくたちがかんがえた最強のチャトワ
 
-Chatworkの拡張機能をまとめた All-in-one Chrome Extension。各機能はプラグインとして実装されており、ポップアップから個別にOn/Offできます。
+[![Chrome Web Store](https://img.shields.io/chrome-web-store/v/dpmmdeaajgdljjahkjgnfeipijbpcemh)](https://chromewebstore.google.com/detail/dpmmdeaajgdljjahkjgnfeipijbpcemh)
+[![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg)](LICENSE)
+
+Chatworkの便利機能をまとめた All-in-one Chrome 拡張機能。各機能はプラグインとして実装されており、設定画面から個別にOn/Offできます。
 
 ## 機能
 
 | プラグイン | 説明 |
 |-----------|------|
-| **Input Tools** | コードブロック・絵文字・装飾タグの挿入ツールバー。ボタンはオプションで選択可能 |
-| **Mute Button** | ワンクリックでチャットをミュート（Chatwork標準のミュート機能を自動操作） |
-| **Quick Task** | メッセージのアクションメニューに「my」ボタンを追加。4モード対応（マイチャット/現チャット × URL/メッセージ） |
-| **Mention Group** | メンバーグループを登録して、ワンクリックでグループ全員へのメンションを挿入。プロフィールカードからグループに追加も可能 |
+| **Input Tools** | コードブロック・絵文字・装飾タグの挿入ツールバー。表示するボタンはオプションで選択可能 |
+| **Mute Button** | ワンクリックでチャットをミュート |
+| **Quick Task** | メッセージのアクションメニューに「my」ボタンを追加。マイチャット/現チャット × URL/メッセージの4モード対応 |
+| **Mention Group** | メンバーグループを登録して、ワンクリックでグループ全員へのメンションを挿入。プロフィールカードからグループへの追加も可能 |
 | **Reaction Copy** | リアクションしたユーザー一覧をコピー。TO付きコピーにも対応 |
 
 ## インストール
 
-### Chrome Web Store
-[Chrome Web Store](https://chromewebstore.google.com/) からインストール（公開後リンク更新予定）
+[Chrome Web Store](https://chromewebstore.google.com/detail/dpmmdeaajgdljjahkjgnfeipijbpcemh) からインストールできます。
 
 ### 開発版
-1. `npm install && npm run build`
-2. Chrome で `chrome://extensions` を開く
-3. 「デベロッパーモード」をON
-4. 「パッケージ化されていない拡張機能を読み込む」→ `dist/` フォルダを選択
+
+```bash
+npm install && npm run build
+```
+
+1. Chrome で `chrome://extensions` を開く
+2. 「デベロッパーモード」をON
+3. 「パッケージ化されていない拡張機能を読み込む」→ `dist/` フォルダを選択
 
 ## 設定
 
