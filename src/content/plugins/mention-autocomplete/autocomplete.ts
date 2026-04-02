@@ -113,6 +113,38 @@ function getCaretRect(textarea: HTMLTextAreaElement) {
   };
 }
 
+const PAGE_SIZE = 50;
+
+function createMemberItem(
+  member: Member,
+  isActive: boolean,
+  textarea: HTMLTextAreaElement,
+): HTMLDivElement {
+  const item = document.createElement("div");
+  item.className = "cw-mention-item" + (isActive ? " active" : "");
+  item.dataset.accountId = String(member.account_id);
+  item.dataset.name = member.name;
+
+  const avatar = document.createElement("img");
+  avatar.className = "cw-mention-avatar";
+  avatar.src = member.avatar_image_url;
+  avatar.onerror = () => {
+    avatar.style.visibility = "hidden";
+  };
+
+  const name = document.createElement("span");
+  name.className = "cw-mention-name";
+  name.textContent = member.name;
+
+  item.appendChild(avatar);
+  item.appendChild(name);
+  item.addEventListener("mousedown", (e) => {
+    e.preventDefault();
+    insertMention(textarea, member);
+  });
+  return item;
+}
+
 function showDropdown(
   members: Member[],
   query: string,
@@ -124,34 +156,31 @@ function showDropdown(
   );
   if (filtered.length === 0) return;
 
+  let loaded = 0;
+  let loading = false;
+
   const dd = document.createElement("div");
   dd.id = "cw-mention-dropdown";
   dropdown = dd;
 
-  filtered.slice(0, 10).forEach((member, idx) => {
-    const item = document.createElement("div");
-    item.className = "cw-mention-item" + (idx === 0 ? " active" : "");
-    item.dataset.accountId = String(member.account_id);
-    item.dataset.name = member.name;
-
-    const avatar = document.createElement("img");
-    avatar.className = "cw-mention-avatar";
-    avatar.src = member.avatar_image_url;
-    avatar.onerror = () => {
-      avatar.style.visibility = "hidden";
-    };
-
-    const name = document.createElement("span");
-    name.className = "cw-mention-name";
-    name.textContent = member.name;
-
-    item.appendChild(avatar);
-    item.appendChild(name);
-    item.addEventListener("mousedown", (e) => {
-      e.preventDefault();
-      insertMention(textarea, member);
+  function loadMore() {
+    if (loading || loaded >= filtered.length) return;
+    loading = true;
+    const chunk = filtered.slice(loaded, loaded + PAGE_SIZE);
+    chunk.forEach((member) => {
+      const isActive = loaded === 0 && dd.children.length === 0;
+      dd.appendChild(createMemberItem(member, isActive, textarea));
+      loaded++;
     });
-    dd.appendChild(item);
+    loading = false;
+  }
+
+  loadMore();
+
+  dd.addEventListener("scroll", () => {
+    if (dd.scrollTop + dd.clientHeight >= dd.scrollHeight - 20) {
+      loadMore();
+    }
   });
 
   document.body.appendChild(dd);
