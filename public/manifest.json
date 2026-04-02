@@ -2,7 +2,7 @@
   "manifest_version": 3,
   "name": "saikyo-cw",
   "version": "0.1.0",
-  "description": "All-in-one Chatwork enhancement extension",
+  "description": "Chatwork拡張機能をまとめたAll-in-one拡張。プラグインごとにOn/Off可能",
   "permissions": ["storage", "activeTab"],
   "host_permissions": ["https://www.chatwork.com/*"],
   "content_scripts": [
@@ -21,5 +21,9 @@
     "default_popup": "src/options/index.html",
     "default_title": "saikyo-cw 設定"
   },
-  "icons": {}
+  "icons": {
+    "16": "icons/icon16.png",
+    "48": "icons/icon48.png",
+    "128": "icons/icon128.png"
+  }
 }
