@@ -140,6 +140,10 @@ function showDropdown(
   query: string,
   textarea: HTMLTextAreaElement,
 ) {
+  // 既存ドロップダウンの位置を保存してから消す
+  if (multiSelectMode && !savedDropdownPos && dropdown) {
+    savedDropdownPos = { top: dropdown.style.top, left: dropdown.style.left };
+  }
   hideDropdown(false);
   const q = query.toLowerCase();
   const filtered = members.filter(
