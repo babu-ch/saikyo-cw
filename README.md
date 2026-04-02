@@ -1,4 +1,4 @@
-# saikyo-cw
+# ぼくたちがかんがえた最強のチャトワ
 
 Chatworkの拡張機能をまとめた All-in-one Chrome Extension。各機能はプラグインとして実装されており、ポップアップから個別にOn/Offできます。
 
