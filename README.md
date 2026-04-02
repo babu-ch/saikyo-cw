@@ -42,6 +42,14 @@ npm run test     # テスト実行
 npm run typecheck # 型チェック
 ```
 
+## プラグインの追加方法
+
+1. `src/content/plugins/<plugin-name>/index.ts` を作成し、`CwPlugin` インターフェースを実装
+2. `src/shared/plugin-configs.ts` にプラグインメタ情報を追加
+3. `src/content/plugin-runner.ts` に import を追加
+
+オプションページのトグルUIは自動で描画されます。
+
 ## ライセンス
 
 MIT
