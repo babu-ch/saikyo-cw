@@ -43,23 +43,29 @@ const STYLES = `
     display: block;
     width: 16px;
     height: 16px;
-    opacity: 0.7;
+    fill: #666;
+    opacity: 0.8;
   }
   #${BTN_ID}:hover svg {
+    fill: #333;
     opacity: 1;
   }
 
-  /* ダークモードでSVGが見えるように */
-  body.mainContentArea--dark #${BTN_ID},
-  body[data-theme="dark"] #${BTN_ID},
-  .darkMode #${BTN_ID} {
-    color: #ccc;
+  /* ダークモード */
+  body.mainContentArea--dark #${BTN_ID} svg,
+  body[data-theme="dark"] #${BTN_ID} svg,
+  .darkMode #${BTN_ID} svg {
+    fill: #ccc;
+  }
+  body.mainContentArea--dark #${BTN_ID}:hover svg,
+  body[data-theme="dark"] #${BTN_ID}:hover svg,
+  .darkMode #${BTN_ID}:hover svg {
+    fill: #fff;
   }
   body.mainContentArea--dark #${BTN_ID}:hover,
   body[data-theme="dark"] #${BTN_ID}:hover,
   .darkMode #${BTN_ID}:hover {
     background: rgba(255, 255, 255, 0.1);
-    color: #fff;
   }
 
   #${DROPDOWN_ID} {
@@ -366,7 +372,7 @@ export function injectGroupPicker(): void {
   const btn = document.createElement("button");
   btn.id = BTN_ID;
   btn.setAttribute("aria-label", "クイックメンション：登録メンバーに一括メンション");
-  btn.innerHTML = `<svg viewBox="0 0 10 10" width="16" height="16" fill="currentColor" aria-hidden="true">
+  btn.innerHTML = `<svg viewBox="0 0 10 10" width="16" height="16" aria-hidden="true">
     <circle cx="3.2" cy="2.5" r="1.5"/>
     <path d="M0.5 7.5C0.5 5.8 1.7 5 3.2 5s2.7.8 2.7 2.5v.5H0.5z"/>
     <circle cx="7" cy="2.5" r="1.3"/>
