@@ -266,6 +266,10 @@ function insertMention(
   // input発火前にフラグを確定させる（onInputが正しく判定できるよう）
   if (keepOpen) {
     multiSelectMode = true;
+    // 現在のドロップダウン位置を保存（再表示時に位置を固定するため）
+    if (!savedDropdownPos && dropdown) {
+      savedDropdownPos = { top: dropdown.style.top, left: dropdown.style.left };
+    }
   } else {
     multiSelectMode = false;
     sessionSelected.clear();
