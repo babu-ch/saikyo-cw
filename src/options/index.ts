@@ -89,7 +89,6 @@ function createPluginCard(
 
 async function createInputToolsConfig(): Promise<HTMLElement> {
   const section = document.createElement("div");
-  section.className = "plugin-card";
 
   const config = await getPluginConfig<{ enabledButtons?: string[] }>(
     "input-tools",
@@ -99,11 +98,7 @@ async function createInputToolsConfig(): Promise<HTMLElement> {
   );
 
   section.innerHTML = `
-    <div class="plugin-info">
-      <div class="plugin-name">Input Tools - ボタン設定</div>
-      <div class="plugin-description">表示するボタンを選択</div>
-      <div class="button-config" style="margin-top: 12px;"></div>
-    </div>
+    <div class="button-config" style="margin-top: 8px;"></div>
   `;
 
   const container = section.querySelector(".button-config")!;
@@ -143,7 +138,6 @@ async function createInputToolsConfig(): Promise<HTMLElement> {
 
 async function createQuickTaskConfig(): Promise<HTMLElement> {
   const section = document.createElement("div");
-  section.className = "plugin-card";
 
   const config = await getPluginConfig<{ mode?: string; myChatId?: string }>(
     "quick-task",
@@ -159,21 +153,17 @@ async function createQuickTaskConfig(): Promise<HTMLElement> {
   ];
 
   section.innerHTML = `
-    <div class="plugin-info">
-      <div class="plugin-name">Quick Task - 設定</div>
-      <div class="plugin-description">タスク追加の動作モードとマイチャットID</div>
-      <div style="margin-top: 12px;">
-        <label class="api-key-label">動作モード</label>
-        <select id="scw-task-mode" style="width: 100%; padding: 8px; border: 1px solid #ddd; border-radius: 6px; font-size: 13px; margin-top: 4px;">
-          ${modes.map((m) => `<option value="${m.value}" ${m.value === currentMode ? "selected" : ""}>${m.label}</option>`).join("")}
-        </select>
-      </div>
-      <div style="margin-top: 12px;">
-        <label class="api-key-label">マイチャットのルームID</label>
-        <input type="text" id="scw-task-chatid" class="api-key-input"
-               placeholder="例: 12345678"
-               value="${currentChatId}">
-      </div>
+    <div style="margin-top: 8px;">
+      <label class="api-key-label">動作モード</label>
+      <select id="scw-task-mode" style="width: 100%; padding: 8px; border: 1px solid #ddd; border-radius: 6px; font-size: 13px; margin-top: 4px;">
+        ${modes.map((m) => `<option value="${m.value}" ${m.value === currentMode ? "selected" : ""}>${m.label}</option>`).join("")}
+      </select>
+    </div>
+    <div style="margin-top: 12px;">
+      <label class="api-key-label">マイチャットのルームID</label>
+      <input type="text" id="scw-task-chatid" class="api-key-input"
+             placeholder="例: 12345678"
+             value="${currentChatId}">
     </div>
   `;
 
@@ -239,25 +229,20 @@ function mgMembersToText(members: MgMember[]): string {
 
 async function createMentionGroupConfig(): Promise<HTMLElement> {
   const section = document.createElement("div");
-  section.className = "plugin-card";
-  section.style.display = "block";
 
   const data = await chrome.storage.sync.get(MG_STORAGE_KEY);
   const groups: MgGroup[] = data[MG_STORAGE_KEY] || [];
 
   section.innerHTML = `
-    <div class="plugin-info">
-      <div class="plugin-name">Mention Group - グループ管理</div>
-      <div class="plugin-description">
-        メンバーを1行ずつ入力（<code>accountId 名前</code> または <code>[To:accountId]名前さん</code> をコピペ）
-      </div>
-      <div id="scw-mg-group-list" style="margin-top: 12px;"></div>
-      <div style="margin-top: 12px; display: flex; gap: 8px;">
-        <button id="scw-mg-add" class="button-config-type" style="cursor: pointer; padding: 6px 12px; border: 1px solid #ddd; border-radius: 6px; background: #f8f8f8;">+ グループ追加</button>
-        <button id="scw-mg-save" class="button-config-type" style="cursor: pointer; padding: 6px 12px; border: none; border-radius: 6px; background: #4a9eff; color: white;">保存</button>
-      </div>
-      <div id="scw-mg-status" style="margin-top: 8px; font-size: 12px;"></div>
+    <div class="plugin-description" style="margin-top: 8px;">
+      メンバーを1行ずつ入力（<code>accountId 名前</code> または <code>[To:accountId]名前さん</code> をコピペ）
     </div>
+    <div id="scw-mg-group-list" style="margin-top: 12px;"></div>
+    <div style="margin-top: 12px; display: flex; gap: 8px;">
+      <button id="scw-mg-add" class="button-config-type" style="cursor: pointer; padding: 6px 12px; border: 1px solid #ddd; border-radius: 6px; background: #f8f8f8;">+ グループ追加</button>
+      <button id="scw-mg-save" class="button-config-type" style="cursor: pointer; padding: 6px 12px; border: none; border-radius: 6px; background: #4a9eff; color: white;">保存</button>
+    </div>
+    <div id="scw-mg-status" style="margin-top: 8px; font-size: 12px;"></div>
   `;
 
   const listEl = section.querySelector("#scw-mg-group-list")!;
@@ -360,6 +345,27 @@ async function createApiTokenSection(): Promise<HTMLElement> {
   return section;
 }
 
+function appendCollapsible(card: HTMLElement, label: string, content: HTMLElement): void {
+  const pluginInfo = card.querySelector(".plugin-info");
+  if (!pluginInfo) return;
+
+  const toggle = document.createElement("button");
+  toggle.className = "plugin-config-toggle";
+  toggle.innerHTML = `<span class="arrow">&#9654;</span> ${label}`;
+
+  const section = document.createElement("div");
+  section.className = "plugin-config-section";
+  section.appendChild(content);
+
+  toggle.addEventListener("click", () => {
+    const isOpen = section.classList.toggle("open");
+    toggle.classList.toggle("open", isOpen);
+  });
+
+  pluginInfo.appendChild(toggle);
+  pluginInfo.appendChild(section);
+}
+
 async function render(): Promise<void> {
   const container = document.getElementById("plugin-list");
   if (!container) return;
@@ -376,17 +382,17 @@ async function render(): Promise<void> {
 
     if (config.id === "input-tools") {
       const btnConfig = await createInputToolsConfig();
-      container.appendChild(btnConfig);
+      appendCollapsible(card, "ボタン設定", btnConfig);
     }
 
     if (config.id === "quick-task") {
       const taskConfig = await createQuickTaskConfig();
-      container.appendChild(taskConfig);
+      appendCollapsible(card, "タスク設定", taskConfig);
     }
 
     if (config.id === "mention-group") {
       const mgConfig = await createMentionGroupConfig();
-      container.appendChild(mgConfig);
+      appendCollapsible(card, "グループ管理", mgConfig);
     }
   }
 }

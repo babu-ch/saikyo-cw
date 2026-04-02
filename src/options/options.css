@@ -166,6 +166,46 @@ h1 {
   border-radius: 3px;
 }
 
+/* Collapsible config sections */
+.plugin-config-section {
+  overflow: hidden;
+  transition: max-height 0.25s ease, opacity 0.25s ease;
+  max-height: 0;
+  opacity: 0;
+}
+
+.plugin-config-section.open {
+  max-height: 2000px;
+  opacity: 1;
+}
+
+.plugin-config-toggle {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  background: none;
+  border: none;
+  cursor: pointer;
+  font-size: 12px;
+  color: #4a9eff;
+  padding: 4px 0;
+  margin-top: 6px;
+}
+
+.plugin-config-toggle:hover {
+  color: #357abd;
+}
+
+.plugin-config-toggle .arrow {
+  display: inline-block;
+  transition: transform 0.2s;
+  font-size: 10px;
+}
+
+.plugin-config-toggle.open .arrow {
+  transform: rotate(90deg);
+}
+
 .status {
   text-align: center;
   font-size: 13px;

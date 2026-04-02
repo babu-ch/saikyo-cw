@@ -166,20 +166,10 @@ const STYLES = `
   body[data-theme="dark"] .scw-mg-item-count,
   .darkMode .scw-mg-item-count { background: #444; color: #aaa; }
 
-  /* プロフィールカード「グループに追加」ボタン */
+  /* プロフィールカード「グループに追加」ボタン — CW既存ボタンと同じ構造 */
   .${ADD_BTN_CLASS} {
-    padding: 6px 12px;
-    border: 1px solid #4a90d9;
-    border-radius: 6px;
-    background: #4a90d9;
-    color: white;
-    font-size: 12px;
-    cursor: pointer;
-    font-family: -apple-system, BlinkMacSystemFont, "Hiragino Sans", sans-serif;
-    transition: background 0.15s;
     position: relative;
   }
-  .${ADD_BTN_CLASS}:hover { background: #357abd; }
 
   .${ADD_DROPDOWN_CLASS} {
     position: absolute;
@@ -415,17 +405,25 @@ export function injectAddToGroupButton(profileBtn: Element): void {
   const name = nameEl?.textContent?.trim() ?? "";
   if (!name) return;
 
-  // ボタン配置先: プロフィールボタンの親(div.sc-dtBdUo)の隣に追加
-  const buttonRow = profileBtn.parentElement?.parentElement?.parentElement;
-  if (!buttonRow) return;
+  // 既存ボタン（「プロフィール」等）のラッパーを見つけて同じ構造で追加
+  // profileBtn → div(inner) → div(wrapper) がボタン1つ分の構造
+  const existingBtnWrapper = profileBtn.parentElement?.parentElement;
+  const buttonRow = existingBtnWrapper?.parentElement;
+  if (!existingBtnWrapper || !buttonRow) return;
 
   injectStyles();
 
-  const wrapper = document.createElement("div");
-  wrapper.style.cssText = "display: inline-block; position: relative;";
+  // 既存ボタンのラッパーをクローンして中身だけ差し替える
+  const wrapper = existingBtnWrapper.cloneNode(false) as HTMLElement;
+  wrapper.className = existingBtnWrapper.className;
+  const inner = document.createElement("div");
+  if (profileBtn.parentElement) {
+    inner.className = profileBtn.parentElement.className;
+  }
 
   const btn = document.createElement("button");
-  btn.className = ADD_BTN_CLASS;
+  // 既存ボタンのclassをコピーしてスタイルを完全に合わせる
+  btn.className = `${profileBtn.className} ${ADD_BTN_CLASS}`;
   btn.textContent = "グループに追加";
 
   btn.addEventListener("click", (e) => {
@@ -512,7 +510,8 @@ export function injectAddToGroupButton(profileBtn: Element): void {
     });
   });
 
-  wrapper.appendChild(btn);
+  inner.appendChild(btn);
+  wrapper.appendChild(inner);
   buttonRow.appendChild(wrapper);
 }
 
