@@ -9,6 +9,7 @@ let activeTextarea: HTMLTextAreaElement | null = null;
 let styleEl: HTMLStyleElement | null = null;
 let multiSelectMode = false;
 const sessionSelected = new Set<string>();
+let savedDropdownPos: { top: string; left: string } | null = null;
 
 interface Member {
   account_id: string;
@@ -189,18 +190,25 @@ function showDropdown(
 
   document.body.appendChild(dd);
 
-  const caretPos = getCaretRect(textarea);
-  const ddH = dd.offsetHeight;
-  const spaceAbove = caretPos.top;
-  const spaceBelow =
-    window.innerHeight - caretPos.top - caretPos.lineHeight;
-
-  if (spaceAbove >= ddH || spaceAbove > spaceBelow) {
-    dd.style.top = caretPos.top - ddH - 4 + "px";
+  if (multiSelectMode && savedDropdownPos) {
+    // 複数選択モード中は初回の位置を維持
+    dd.style.top = savedDropdownPos.top;
+    dd.style.left = savedDropdownPos.left;
   } else {
-    dd.style.top = caretPos.top + caretPos.lineHeight + 4 + "px";
+    const caretPos = getCaretRect(textarea);
+    const ddH = dd.offsetHeight;
+    const spaceAbove = caretPos.top;
+    const spaceBelow =
+      window.innerHeight - caretPos.top - caretPos.lineHeight;
+
+    if (spaceAbove >= ddH || spaceAbove > spaceBelow) {
+      dd.style.top = caretPos.top - ddH - 4 + "px";
+    } else {
+      dd.style.top = caretPos.top + caretPos.lineHeight + 4 + "px";
+    }
+    dd.style.left = Math.max(4, caretPos.left) + "px";
+    savedDropdownPos = { top: dd.style.top, left: dd.style.left };
   }
-  dd.style.left = Math.max(4, caretPos.left) + "px";
 }
 
 export function hideDropdown(resetAll = true): void {
@@ -212,6 +220,7 @@ export function hideDropdown(resetAll = true): void {
 function resetMultiSelect(): void {
   multiSelectMode = false;
   sessionSelected.clear();
+  savedDropdownPos = null;
 }
 
 function moveActive(dir: number) {
