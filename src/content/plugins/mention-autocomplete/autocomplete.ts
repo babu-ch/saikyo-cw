@@ -10,6 +10,7 @@ let styleEl: HTMLStyleElement | null = null;
 let multiSelectMode = false;
 const sessionSelected = new Set<string>();
 let savedDropdownPos: { top: string; left: string } | null = null;
+let suppressInput = false;
 
 interface Member {
   account_id: string;
@@ -262,27 +263,24 @@ function insertMention(
     newPos = pos + mention.length;
   }
 
+  // onInputが走らないように抑制
+  suppressInput = true;
+
+  // 現在のドロップダウン位置を保存（再表示時に位置を固定するため）
+  if (keepOpen && !savedDropdownPos && dropdown) {
+    savedDropdownPos = { top: dropdown.style.top, left: dropdown.style.left };
+  }
+
   setReactInputValue(textarea, newVal);
   textarea.setSelectionRange(newPos, newPos);
+  textarea.focus();
+
+  suppressInput = false;
 
   sessionSelected.add(member.account_id);
 
-  // input発火前にフラグを確定させる（onInputが正しく判定できるよう）
   if (keepOpen) {
     multiSelectMode = true;
-    // 現在のドロップダウン位置を保存（再表示時に位置を固定するため）
-    if (!savedDropdownPos && dropdown) {
-      savedDropdownPos = { top: dropdown.style.top, left: dropdown.style.left };
-    }
-  } else {
-    multiSelectMode = false;
-    sessionSelected.clear();
-  }
-
-  textarea.dispatchEvent(new Event("input", { bubbles: true }));
-  textarea.focus();
-
-  if (keepOpen) {
     const roomId = getRoomId();
     if (roomId) {
       fetchMembers(roomId).then((members) =>
@@ -290,11 +288,14 @@ function insertMention(
       );
     }
   } else {
+    multiSelectMode = false;
+    sessionSelected.clear();
     hideDropdown();
   }
 }
 
 async function onInput(e: Event) {
+  if (suppressInput) return;
   const ta = e.target as HTMLElement;
   if (ta.id !== CW.CHAT_INPUT.replace("#", "")) return;
   activeTextarea = ta as HTMLTextAreaElement;
