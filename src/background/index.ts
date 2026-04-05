@@ -27,10 +27,15 @@ async function getAutoReadConfig(): Promise<Record<string, AutoReadRoomConfig>> 
   return config?.autoReadRooms ?? {};
 }
 
+function isValidRoomId(id: unknown): id is string {
+  return typeof id === "string" && /^\d+$/.test(id);
+}
+
 async function fetchMessagesForRoom(
   roomId: string,
   token: string,
 ): Promise<Array<{ message_id: string; body?: string; account?: { account_id?: number } }>> {
+  if (!isValidRoomId(roomId)) throw new Error("Invalid roomId");
   const res = await fetch(
     `https://api.chatwork.com/v2/rooms/${roomId}/messages?force=1`,
     { headers: { "X-ChatWorkToken": token } },
@@ -153,10 +158,22 @@ async function handleAutoRead(
 }
 
 // Chatwork API プロキシ
-chrome.runtime.onMessage.addListener((message, _sender, sendResponse) => {
+chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
+  // sender検証: 自拡張またはchatwork.comからのみ受け付ける
+  const isFromExtension = sender.id === chrome.runtime.id;
+  const isFromChatwork = sender.url?.startsWith("https://www.chatwork.com/");
+  if (!isFromExtension && !isFromChatwork) {
+    sendResponse({ ok: false });
+    return;
+  }
+
   const { token } = message;
 
   if (message.type === "fetchMembers") {
+    if (!isValidRoomId(message.roomId)) {
+      sendResponse({ ok: false });
+      return;
+    }
     fetch(
       `https://api.chatwork.com/v2/rooms/${message.roomId}/members`,
       { headers: { "X-ChatWorkToken": token } },
@@ -204,6 +221,10 @@ chrome.runtime.onMessage.addListener((message, _sender, sendResponse) => {
   }
 
   if (message.type === "fetchMessages") {
+    if (!isValidRoomId(message.roomId)) {
+      sendResponse({ ok: false });
+      return;
+    }
     fetch(
       `https://api.chatwork.com/v2/rooms/${message.roomId}/messages?force=1`,
       { headers: { "X-ChatWorkToken": token } },

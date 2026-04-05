@@ -101,7 +101,7 @@ async function scan(): Promise<void> {
       clearAllVipBadges();
       return;
     }
-    log(`VIPリスト: ${vips.map(v => `${v.name}(${v.accountId})`).join(", ")}`);
+    log(`VIPリスト: ${vips.length}件`);
 
     // 初回にルームタイプを取得
     await loadRoomTypes(token);
@@ -184,13 +184,13 @@ async function scan(): Promise<void> {
 
         prevUnread.set(roomId, unreadCount);
 
-        log(`  取得メッセージ: ${res.messages.length}件, 送信者: ${res.messages.map((m: { account?: { account_id?: number; name?: string } }) => `${m.account?.name ?? "?"}(${m.account?.account_id})`).slice(0, 5).join(", ")}${res.messages.length > 5 ? "..." : ""}`);
+        log(`  取得メッセージ: ${res.messages.length}件`);
 
         // 未読分のメッセージだけ判定（末尾からunreadCount件）
         const recentMessages = res.messages.slice(-unreadCount);
         const hit = findVipHit(recentMessages, vipIds, vips);
         if (hit) {
-          log(`  ★ VIPヒット! roomId=${roomId}, VIP=${hit.name}(${hit.accountId}), color=${hit.color}`);
+          log(`  ★ VIPヒット! roomId=${roomId}`);
           applyVipBadge(item, hit.color);
         } else {
           log(`  VIPなし: roomId=${roomId}`);

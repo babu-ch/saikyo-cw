@@ -59,17 +59,18 @@ export async function createRoomMemberPicker(opts: RoomMemberPickerOptions): Pro
   const { prefix, selectedIds, onChange } = opts;
   const container = document.createElement("div");
 
+  const safePrefix = escapeHtml(prefix);
   container.innerHTML = `
     <div style="margin-top: 8px;">
       <label class="api-key-label">ルームを選んでメンバーを表示</label>
-      <select id="${prefix}-room-select" class="api-key-input" style="margin-top: 4px;">
+      <select id="${safePrefix}-room-select" class="api-key-input" style="margin-top: 4px;">
         <option value="">-- ルーム読み込み中... --</option>
       </select>
     </div>
     <div style="margin-top: 12px;">
       <label class="api-key-label">メンバーから選択</label>
-      <div id="${prefix}-member-list" style="max-height: 200px; overflow-y: auto; margin-top: 4px; border: 1px solid #eee; border-radius: 6px;"></div>
-      <p id="${prefix}-member-helper" style="font-size: 11px; color: #888; margin-top: 4px;"></p>
+      <div id="${safePrefix}-member-list" style="max-height: 200px; overflow-y: auto; margin-top: 4px; border: 1px solid #eee; border-radius: 6px;"></div>
+      <p id="${safePrefix}-member-helper" style="font-size: 11px; color: #888; margin-top: 4px;"></p>
     </div>
   `;
 

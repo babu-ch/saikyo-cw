@@ -33,6 +33,14 @@ Chrome拡張のcontent scriptはESM importが使えないため。
 - **ストレージ**: `chrome.storage.sync`を使用。プラグイン設定は`plugin_`プレフィックス付き。共通APIトークンは`chatworkApiToken`キー
 - **API呼び出し**: content scriptからChatwork APIを叩く場合、CORSのためbackground script経由で`chrome.runtime.sendMessage`を使う
 
+## セキュリティルール
+
+- **innerHTML**: 値を埋め込む場合は必ず`escapeHtml()`を通す。`textContent`で済む場合はそちらを使う
+- **メッセージハンドラ**: `chrome.runtime.onMessage`のリスナーでは`sender.url`が自拡張またはchatwork.comであることを検証する
+- **URL補間**: ユーザー入力やメッセージ経由の値をURL文字列に埋め込む前に形式をバリデーションする（例: roomIdは`/^\d+$/`）
+- **ログ**: ユーザー名・アカウントIDなどの個人情報をログに含めない
+- **CSP**: `manifest.json`の`content_security_policy`（`script-src 'self'; object-src 'none'`）を維持する
+
 ## UI方針
 
 - CWに注入するボタンは既存UIのトンマナに合わせる。独自スタイルを当てずに既存ボタンのclassをコピーする
