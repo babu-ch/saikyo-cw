@@ -1,12 +1,13 @@
 import { getApiToken, getPluginConfig } from "../../../shared/storage";
 
-const SCAN_INTERVAL_MS = 60_000;
+const SCAN_INTERVAL_MS = 15_000;
 const STYLE_ID = "scw-vip-notify-style";
 const VIP_BADGE_CLASS = "scw-vip-badge";
 const VIP_ROOM_ATTR = "data-scw-vip";
+const LOG_PREFIX = "[scw:vip]";
 
 // ルームのDOM要素セレクタ
-const ROOM_ITEM_SELECTOR = '[role="listitem"][data-rid]';
+const ROOM_ITEM_SELECTOR = '[role="tab"][data-rid]';
 const UNREAD_BADGE_SELECTOR =
   '.sc-dnqmqq, [class*="unreadBadge"], .roomListItem__unreadBadge, [data-testid="unread-badge"]';
 
@@ -63,14 +64,19 @@ function injectStyles(): void {
 async function loadRoomTypes(token: string): Promise<void> {
   if (roomTypeLoaded) return;
 
+  console.log(LOG_PREFIX, "ルームタイプ取得中...");
   const res = await chrome.runtime.sendMessage({ type: "fetchRooms", token });
-  if (!res?.ok || !Array.isArray(res.rooms)) return;
+  if (!res?.ok || !Array.isArray(res.rooms)) {
+    console.warn(LOG_PREFIX, "ルーム取得失敗:", res);
+    return;
+  }
 
   roomTypeMap = new Map<string, string>();
   for (const room of res.rooms as RoomTypeEntry[]) {
     roomTypeMap.set(String(room.room_id), room.type);
   }
   roomTypeLoaded = true;
+  console.log(LOG_PREFIX, `ルームタイプ取得完了: ${roomTypeMap.size}件 (my=${[...roomTypeMap.values()].filter(t => t === "my").length}, direct=${[...roomTypeMap.values()].filter(t => t === "direct").length}, group=${[...roomTypeMap.values()].filter(t => t === "group").length})`);
 }
 
 async function getVipList(): Promise<VipEntry[]> {
@@ -84,22 +90,34 @@ async function scan(): Promise<void> {
 
   try {
     const token = await getApiToken();
-    if (!token) return;
+    if (!token) {
+      console.warn(LOG_PREFIX, "APIトークン未設定");
+      return;
+    }
 
     const vips = await getVipList();
     if (vips.length === 0) {
+      console.log(LOG_PREFIX, "VIPリスト空 → スキップ");
       clearAllVipBadges();
       return;
     }
+    console.log(LOG_PREFIX, `VIPリスト: ${vips.map(v => `${v.name}(${v.accountId})`).join(", ")}`);
 
     // 初回にルームタイプを取得
     await loadRoomTypes(token);
 
     const roomItems = document.querySelectorAll<HTMLElement>(ROOM_ITEM_SELECTOR);
+    console.log(LOG_PREFIX, `DOM上のルーム: ${roomItems.length}件`);
+
     const vipIds = new Set(vips.map((v) => v.accountId));
 
     // チェック対象を抽出
     const targets: { roomId: string; item: HTMLElement; unreadCount: number }[] = [];
+    let skippedMy = 0;
+    let skippedDirect = 0;
+    let skippedNoBadge = 0;
+    let skippedNoChange = 0;
+    let skippedUnknownType = 0;
 
     for (const item of roomItems) {
       const roomId = item.getAttribute("data-rid");
@@ -107,15 +125,26 @@ async function scan(): Promise<void> {
 
       // マイチャット・DMを除外
       const roomType = roomTypeMap.get(roomId);
-      if (roomType === "my" || roomType === "direct") {
+      if (roomType === "my") {
         removeVipBadge(item);
+        skippedMy++;
         continue;
+      }
+      if (roomType === "direct") {
+        removeVipBadge(item);
+        skippedDirect++;
+        continue;
+      }
+      if (!roomType) {
+        skippedUnknownType++;
+        // ルームタイプ不明でも処理は続行
       }
 
       const badgeEl = item.querySelector(UNREAD_BADGE_SELECTOR);
       if (!badgeEl) {
         removeVipBadge(item);
         prevUnread.set(roomId, 0);
+        skippedNoBadge++;
         continue;
       }
 
@@ -123,22 +152,27 @@ async function scan(): Promise<void> {
       if (!unreadCount || unreadCount <= 0) {
         removeVipBadge(item);
         prevUnread.set(roomId, 0);
+        skippedNoBadge++;
         continue;
       }
 
       const prev = prevUnread.get(roomId);
-      prevUnread.set(roomId, unreadCount);
 
       if (prev === undefined || unreadCount > prev) {
-        // 新規出現 or 未読増加 → チェック対象
+        // 新規出現 or 未読増加 → チェック対象（prevUnreadはAPI成功後に更新）
         targets.push({ roomId, item, unreadCount });
+        console.log(LOG_PREFIX, `  対象: roomId=${roomId}, 未読=${unreadCount} (前回=${prev ?? "なし"})`);
+      } else {
+        skippedNoChange++;
       }
-      // 変化なしのルームはバッジ状態をそのまま維持
     }
 
+    console.log(LOG_PREFIX, `スキャン結果: 対象=${targets.length}, スキップ(my=${skippedMy}, dm=${skippedDirect}, バッジなし=${skippedNoBadge}, 変化なし=${skippedNoChange}, タイプ不明=${skippedUnknownType})`);
+
     // 対象ルームのメッセージを取得してVIP判定（直列でAPI負荷を抑える）
-    for (const { roomId, item } of targets) {
+    for (const { roomId, item, unreadCount } of targets) {
       try {
+        console.log(LOG_PREFIX, `  fetchMessages: roomId=${roomId}`);
         const res = await chrome.runtime.sendMessage({
           type: "fetchMessages",
           roomId,
@@ -146,18 +180,27 @@ async function scan(): Promise<void> {
         });
 
         if (!res?.ok || !Array.isArray(res.messages)) {
+          console.warn(LOG_PREFIX, `  fetchMessages失敗: roomId=${roomId}`, res);
+          // 失敗時はprevUnreadを更新しない → 次回リトライ
           continue;
         }
+
+        // API成功 → prevUnreadを更新
+        prevUnread.set(roomId, unreadCount);
+
+        console.log(LOG_PREFIX, `  取得メッセージ: ${res.messages.length}件, 送信者: ${res.messages.map((m: { account?: { account_id?: number; name?: string } }) => `${m.account?.name ?? "?"}(${m.account?.account_id})`).slice(0, 5).join(", ")}${res.messages.length > 5 ? "..." : ""}`);
 
         // メッセージの送信者にVIPがいるか判定
         const hit = findVipHit(res.messages, vipIds, vips);
         if (hit) {
+          console.log(LOG_PREFIX, `  ★ VIPヒット! roomId=${roomId}, VIP=${hit.name}(${hit.accountId}), color=${hit.color}`);
           applyVipBadge(item, hit.color);
         } else {
+          console.log(LOG_PREFIX, `  VIPなし: roomId=${roomId}`);
           removeVipBadge(item);
         }
-      } catch {
-        // API失敗は無視して次へ
+      } catch (e) {
+        console.error(LOG_PREFIX, `  エラー: roomId=${roomId}`, e);
       }
     }
   } finally {
@@ -211,13 +254,16 @@ function clearAllVipBadges(): void {
 }
 
 export function initVipNotify(): void {
+  console.log(LOG_PREFIX, "初期化開始");
   injectStyles();
   // 初回スキャン
   scan();
   scanTimer = setInterval(scan, SCAN_INTERVAL_MS);
+  console.log(LOG_PREFIX, `ポーリング開始: ${SCAN_INTERVAL_MS / 1000}秒間隔`);
 }
 
 export function destroyVipNotify(): void {
+  console.log(LOG_PREFIX, "破棄");
   if (scanTimer) {
     clearInterval(scanTimer);
     scanTimer = null;

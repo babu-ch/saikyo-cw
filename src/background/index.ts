@@ -48,15 +48,17 @@ chrome.runtime.onMessage.addListener((message, _sender, sendResponse) => {
 
   if (message.type === "fetchMessages") {
     fetch(
-      `https://api.chatwork.com/v2/rooms/${message.roomId}/messages?force=0`,
+      `https://api.chatwork.com/v2/rooms/${message.roomId}/messages?force=1`,
       { headers: { "X-ChatWorkToken": token } },
     )
       .then((res) => {
+        // 204 No Content = 未読なし → 空配列として返す
+        if (res.status === 204) return [];
         if (!res.ok) throw new Error(`API error: ${res.status}`);
         return res.json();
       })
-      .then((messages) => sendResponse({ ok: true, messages }))
-      .catch(() => sendResponse({ ok: false }));
+      .then((messages) => sendResponse({ ok: true, messages: Array.isArray(messages) ? messages : [] }))
+      .catch((e) => sendResponse({ ok: false, error: e.message }));
     return true;
   }
 });
