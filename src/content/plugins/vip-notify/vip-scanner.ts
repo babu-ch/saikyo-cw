@@ -186,7 +186,9 @@ async function scan(): Promise<void> {
 
         log(`  取得メッセージ: ${res.messages.length}件, 送信者: ${res.messages.map((m: { account?: { account_id?: number; name?: string } }) => `${m.account?.name ?? "?"}(${m.account?.account_id})`).slice(0, 5).join(", ")}${res.messages.length > 5 ? "..." : ""}`);
 
-        const hit = findVipHit(res.messages, vipIds, vips);
+        // 未読分のメッセージだけ判定（末尾からunreadCount件）
+        const recentMessages = res.messages.slice(-unreadCount);
+        const hit = findVipHit(recentMessages, vipIds, vips);
         if (hit) {
           log(`  ★ VIPヒット! roomId=${roomId}, VIP=${hit.name}(${hit.accountId}), color=${hit.color}`);
           applyVipBadge(item, hit.color);
@@ -198,8 +200,47 @@ async function scan(): Promise<void> {
         warn(`  エラー: roomId=${roomId}`, e);
       }
     }
+    // 自動既読: 未読ありルームの情報をbackgroundに送る
+    await sendAutoReadData(token, vips);
   } finally {
     scanning = false;
+  }
+}
+
+async function sendAutoReadData(token: string, vips: VipEntry[]): Promise<void> {
+  // myAccountIdを取得
+  const vipConfig = await getPluginConfig<{ vips?: VipEntry[]; myAccountId?: number }>("vip-notify");
+  const myAccountId = vipConfig?.myAccountId ?? null;
+
+  // 未読ありルーム一覧を収集（prevUnreadに記録済みのもの）
+  const roomItems = document.querySelectorAll<HTMLElement>(ROOM_ITEM_SELECTOR);
+  const unreadRooms: Array<{ roomId: string; unreadCount: number }> = [];
+
+  for (const item of roomItems) {
+    const roomId = item.getAttribute("data-rid");
+    if (!roomId) continue;
+
+    const roomType = roomTypeMap.get(roomId);
+    if (roomType === "my" || roomType === "direct") continue;
+
+    const unread = prevUnread.get(roomId);
+    if (unread && unread > 0) {
+      unreadRooms.push({ roomId, unreadCount: unread });
+    }
+  }
+
+  if (unreadRooms.length === 0) return;
+
+  try {
+    await chrome.runtime.sendMessage({
+      type: "autoRead",
+      token,
+      rooms: unreadRooms,
+      vipIds: vips.map((v) => v.accountId),
+      myAccountId,
+    });
+  } catch {
+    // backgroundが応答しない場合は無視
   }
 }
 
