@@ -47,6 +47,10 @@ Chrome拡張のcontent scriptはESM importが使えないため。
 - プロフィールカードのボタンは既存ボタンのDOM構造（wrapper→inner→button）をcloneNodeして追加する
 - オプション画面の詳細設定はcollapse（折りたたみ）式にする
 
+## ドキュメント
+
+- プラグイン追加・削除時は`README.md`の機能一覧も更新する
+
 ## バージョン管理
 
 - `package.json`と`public/manifest.json`の両方のversionを更新する
