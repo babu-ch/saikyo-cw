@@ -6,6 +6,7 @@ import { quickTaskPlugin } from "./plugins/quick-task";
 import { mentionGroupPlugin } from "./plugins/mention-group";
 import { reactionCopyPlugin } from "./plugins/reaction-copy";
 import { mentionAutocompletePlugin } from "./plugins/mention-autocomplete";
+import { forceSendButtonPlugin } from "./plugins/force-send-button";
 import { vipNotifyPlugin } from "./plugins/vip-notify";
 
 const ALL_PLUGINS: CwPlugin[] = [
@@ -15,6 +16,7 @@ const ALL_PLUGINS: CwPlugin[] = [
   mentionGroupPlugin,
   reactionCopyPlugin,
   mentionAutocompletePlugin,
+  forceSendButtonPlugin,
   vipNotifyPlugin,
 ];
 
