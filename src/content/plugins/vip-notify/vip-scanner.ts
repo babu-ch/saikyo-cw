@@ -198,8 +198,47 @@ async function scan(): Promise<void> {
         warn(`  エラー: roomId=${roomId}`, e);
       }
     }
+    // 自動既読: 未読ありルームの情報をbackgroundに送る
+    await sendAutoReadData(token, vips);
   } finally {
     scanning = false;
+  }
+}
+
+async function sendAutoReadData(token: string, vips: VipEntry[]): Promise<void> {
+  // myAccountIdを取得
+  const vipConfig = await getPluginConfig<{ vips?: VipEntry[]; myAccountId?: number }>("vip-notify");
+  const myAccountId = vipConfig?.myAccountId ?? null;
+
+  // 未読ありルーム一覧を収集（prevUnreadに記録済みのもの）
+  const roomItems = document.querySelectorAll<HTMLElement>(ROOM_ITEM_SELECTOR);
+  const unreadRooms: Array<{ roomId: string; unreadCount: number }> = [];
+
+  for (const item of roomItems) {
+    const roomId = item.getAttribute("data-rid");
+    if (!roomId) continue;
+
+    const roomType = roomTypeMap.get(roomId);
+    if (roomType === "my" || roomType === "direct") continue;
+
+    const unread = prevUnread.get(roomId);
+    if (unread && unread > 0) {
+      unreadRooms.push({ roomId, unreadCount: unread });
+    }
+  }
+
+  if (unreadRooms.length === 0) return;
+
+  try {
+    await chrome.runtime.sendMessage({
+      type: "autoRead",
+      token,
+      rooms: unreadRooms,
+      vipIds: vips.map((v) => v.accountId),
+      myAccountId,
+    });
+  } catch {
+    // backgroundが応答しない場合は無視
   }
 }
 
