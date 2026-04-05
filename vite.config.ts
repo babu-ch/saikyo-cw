@@ -5,10 +5,16 @@ import { resolve } from "path";
 // content/backgroundとoptionsを別々のビルドとして実行する
 export default defineConfig(({ mode }) => {
   const target = process.env.BUILD_TARGET;
+  const isDev = mode === "development";
+
+  const commonDefine = {
+    __DEV__: JSON.stringify(isDev),
+  };
 
   if (target === "options") {
     return {
       base: "/",
+      define: commonDefine,
       build: {
         outDir: "dist",
         emptyOutDir: false,
@@ -33,6 +39,7 @@ export default defineConfig(({ mode }) => {
 
   // content + background: IIFEで個別ビルド
   return {
+    define: commonDefine,
     build: {
       outDir: "dist",
       emptyOutDir: !target, // 最初のビルドのみクリア
