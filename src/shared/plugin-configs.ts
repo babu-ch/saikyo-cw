@@ -32,6 +32,13 @@ export const PLUGIN_CONFIGS: PluginConfig[] = [
     description: "@を入力するとメンバー候補を表示してメンション挿入",
   },
   {
+    id: "force-send-button",
+    name: "送信ボタン強制",
+    description:
+      "Enterキーでの送信を無効化し、送信ボタンのクリックでのみ送信可能にします",
+    defaultEnabled: false,
+  },
+  {
     id: "vip-notify",
     name: "VIP通知",
     description:
