@@ -1,4 +1,5 @@
 import { PLUGIN_CONFIGS } from "../shared/plugin-configs";
+import { escapeHtml } from "../shared/escape-html";
 import { createRoomMemberPicker, updatePickerSelection } from "./room-member-picker";
 import {
   ALL_BUTTON_METAS,
@@ -14,10 +15,6 @@ import {
   setApiToken,
   type PluginSettings,
 } from "../shared/storage";
-
-function escapeHtml(s: string): string {
-  return s.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;");
-}
 
 let statusTimeout: ReturnType<typeof setTimeout> | null = null;
 

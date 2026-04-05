@@ -1,4 +1,5 @@
 import { getApiToken } from "../shared/storage";
+import { escapeHtml } from "../shared/escape-html";
 
 export interface PickedMember {
   accountId: number;
@@ -18,10 +19,6 @@ interface RoomMemberPickerOptions {
 let roomsCache: Array<{ room_id: number; name: string; type: string }> | null = null;
 // メンバーキャッシュ（ルームID → メンバー一覧）
 const memberCache: Record<string, Array<{ account_id: number; name: string }>> = {};
-
-function escapeHtml(s: string): string {
-  return s.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;");
-}
 
 async function fetchRooms(): Promise<typeof roomsCache> {
   if (roomsCache) return roomsCache;
