@@ -1,4 +1,5 @@
 import { PLUGIN_CONFIGS } from "../shared/plugin-configs";
+import { escapeHtml } from "../shared/escape-html";
 import { createRoomMemberPicker, updatePickerSelection } from "./room-member-picker";
 import {
   ALL_BUTTON_METAS,
@@ -14,10 +15,6 @@ import {
   setApiToken,
   type PluginSettings,
 } from "../shared/storage";
-
-function escapeHtml(s: string): string {
-  return s.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;");
-}
 
 let statusTimeout: ReturnType<typeof setTimeout> | null = null;
 
@@ -43,24 +40,24 @@ function createPluginCard(
 
   card.innerHTML = `
     <div class="plugin-info">
-      <div class="plugin-name">${config.name}</div>
-      <div class="plugin-description">${config.description}</div>
+      <div class="plugin-name">${escapeHtml(config.name)}</div>
+      <div class="plugin-description">${escapeHtml(config.description)}</div>
       ${
         config.requiresApiKey
           ? `
         <div class="plugin-config">
-          <label class="api-key-label">${config.apiKeyLabel ?? "API Key"}</label>
+          <label class="api-key-label">${escapeHtml(config.apiKeyLabel ?? "API Key")}</label>
           <input type="password" class="api-key-input"
                  placeholder="APIキーを入力"
-                 value="${settings?.apiKey ?? ""}"
-                 data-plugin-id="${config.id}">
+                 value="${escapeHtml(settings?.apiKey ?? "")}"
+                 data-plugin-id="${escapeHtml(config.id)}">
         </div>
       `
           : ""
       }
     </div>
     <label class="toggle">
-      <input type="checkbox" ${enabled ? "checked" : ""} data-plugin-id="${config.id}">
+      <input type="checkbox" ${enabled ? "checked" : ""} data-plugin-id="${escapeHtml(config.id)}">
       <span class="toggle-slider"></span>
     </label>
   `;
@@ -112,10 +109,10 @@ async function createInputToolsConfig(): Promise<HTMLElement> {
       meta.type === "tag" ? "タグ" : meta.type === "emo" ? "絵文字" : "アクション";
 
     label.innerHTML = `
-      <input type="checkbox" ${enabledIds.has(meta.id) ? "checked" : ""} data-button-id="${meta.id}">
-      <span class="button-config-label">${meta.label}</span>
-      <span class="button-config-desc">${meta.description}</span>
-      <span class="button-config-type">${typeLabel}</span>
+      <input type="checkbox" ${enabledIds.has(meta.id) ? "checked" : ""} data-button-id="${escapeHtml(meta.id)}">
+      <span class="button-config-label">${escapeHtml(meta.label)}</span>
+      <span class="button-config-desc">${escapeHtml(meta.description)}</span>
+      <span class="button-config-type">${escapeHtml(typeLabel)}</span>
     `;
 
     const cb = label.querySelector<HTMLInputElement>("input")!;
@@ -157,14 +154,14 @@ async function createQuickTaskConfig(): Promise<HTMLElement> {
     <div style="margin-top: 8px;">
       <label class="api-key-label">動作モード</label>
       <select id="scw-task-mode" style="width: 100%; padding: 8px; border: 1px solid #ddd; border-radius: 6px; font-size: 13px; margin-top: 4px;">
-        ${modes.map((m) => `<option value="${m.value}" ${m.value === currentMode ? "selected" : ""}>${m.label}</option>`).join("")}
+        ${modes.map((m) => `<option value="${escapeHtml(m.value)}" ${m.value === currentMode ? "selected" : ""}>${escapeHtml(m.label)}</option>`).join("")}
       </select>
     </div>
     <div style="margin-top: 12px;">
       <label class="api-key-label">マイチャットのルームID</label>
       <input type="text" id="scw-task-chatid" class="api-key-input"
              placeholder="例: 12345678"
-             value="${currentChatId}">
+             value="${escapeHtml(currentChatId)}">
     </div>
   `;
 
@@ -353,7 +350,7 @@ async function createApiTokenSection(): Promise<HTMLElement> {
       <div class="plugin-config" style="margin-top: 8px;">
         <input type="password" id="scw-api-token" class="api-key-input"
                placeholder="APIトークンを入力"
-               value="${currentToken}">
+               value="${escapeHtml(currentToken)}">
       </div>
     </div>
   `;
@@ -713,7 +710,7 @@ function appendCollapsible(card: HTMLElement, label: string, content: HTMLElemen
 
   const toggle = document.createElement("button");
   toggle.className = "plugin-config-toggle";
-  toggle.innerHTML = `<span class="arrow">&#9654;</span> ${label}`;
+  toggle.innerHTML = `<span class="arrow">&#9654;</span> ${escapeHtml(label)}`;
 
   const section = document.createElement("div");
   section.className = "plugin-config-section";

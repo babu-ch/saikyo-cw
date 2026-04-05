@@ -30,7 +30,8 @@ async function getMyChatId(): Promise<string> {
   );
   if (!id) throw new Error("Room ID is required");
 
-  const numericId = id.match(/\d+/)?.[0] ?? id;
+  const numericId = id.match(/^\d+$/)?.[0] ?? id.match(/\d+/)?.[0];
+  if (!numericId) throw new Error("数値のIDを入力してください");
   await setPluginConfig(PLUGIN_ID, { ...config, myChatId: numericId });
   return numericId;
 }
