@@ -1,3 +1,5 @@
+import { log, warn } from "../shared/logger";
+
 chrome.runtime.onInstalled.addListener(() => {
   console.log("saikyo-cw installed");
 });
@@ -83,29 +85,38 @@ async function handleAutoRead(
   myAccountId: number | null,
 ): Promise<{ readRooms: string[] }> {
   const autoReadConfig = await getAutoReadConfig();
+  log("autoRead config:", JSON.stringify(autoReadConfig), "rooms:", rooms.length);
   const readRooms: string[] = [];
 
   for (const room of rooms) {
     const config = autoReadConfig[room.roomId];
+    warn(`autoRead room=${room.roomId}, config=`, config);
     if (!config?.enabled) continue;
 
     // メッセージ取得（content.jsから渡されていればそれを使う）
     let messages = room.messages;
     if (!messages) {
       try {
+        warn(`autoRead fetching messages for room=${room.roomId}`);
         messages = await fetchMessagesForRoom(room.roomId, token);
-      } catch {
+      } catch (e) {
+        warn(`autoRead fetchMessages failed room=${room.roomId}`, e);
         continue;
       }
     }
 
     if (!messages || messages.length === 0) continue;
 
-    // 全メッセージが既読対象かチェック
-    const allAutoRead = messages.every(
+    // 未読分のメッセージだけ判定（末尾からunreadCount件）
+    const candidates = messages.slice(-room.unreadCount);
+    warn(`autoRead room=${room.roomId}, messages=${messages.length}, candidates=${candidates.length}`);
+
+    // 全未読メッセージが既読対象かチェック
+    const allAutoRead = candidates.every(
       (msg) => !shouldKeepMessage(msg, vipIds, myAccountId, config.keywords),
     );
 
+    warn(`autoRead room=${room.roomId}, allAutoRead=${allAutoRead}`);
     if (!allAutoRead) continue;
 
     // 全部既読対象 → 最新メッセージIDで既読化
@@ -117,6 +128,7 @@ async function handleAutoRead(
     const latestMsgId = sorted[sorted.length - 1].message_id;
 
     try {
+      warn(`autoRead marking read room=${room.roomId}, msgId=${latestMsgId}`);
       const res = await fetch(
         `https://api.chatwork.com/v2/rooms/${room.roomId}/messages/read`,
         {
@@ -128,11 +140,12 @@ async function handleAutoRead(
           body: new URLSearchParams({ message_id: latestMsgId }).toString(),
         },
       );
+      warn(`autoRead PUT result room=${room.roomId}, status=${res.status}`);
       if (res.ok) {
         readRooms.push(room.roomId);
       }
-    } catch {
-      // 失敗は無視
+    } catch (e) {
+      warn(`autoRead PUT failed room=${room.roomId}`, e);
     }
   }
 

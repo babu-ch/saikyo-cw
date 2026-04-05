@@ -186,7 +186,9 @@ async function scan(): Promise<void> {
 
         log(`  取得メッセージ: ${res.messages.length}件, 送信者: ${res.messages.map((m: { account?: { account_id?: number; name?: string } }) => `${m.account?.name ?? "?"}(${m.account?.account_id})`).slice(0, 5).join(", ")}${res.messages.length > 5 ? "..." : ""}`);
 
-        const hit = findVipHit(res.messages, vipIds, vips);
+        // 未読分のメッセージだけ判定（末尾からunreadCount件）
+        const recentMessages = res.messages.slice(-unreadCount);
+        const hit = findVipHit(recentMessages, vipIds, vips);
         if (hit) {
           log(`  ★ VIPヒット! roomId=${roomId}, VIP=${hit.name}(${hit.accountId}), color=${hit.color}`);
           applyVipBadge(item, hit.color);
