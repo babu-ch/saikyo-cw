@@ -32,4 +32,31 @@ chrome.runtime.onMessage.addListener((message, _sender, sendResponse) => {
       .catch(() => sendResponse({ ok: false }));
     return true;
   }
+
+  if (message.type === "fetchRooms") {
+    fetch("https://api.chatwork.com/v2/rooms", {
+      headers: { "X-ChatWorkToken": token },
+    })
+      .then((res) => {
+        if (!res.ok) throw new Error(`API error: ${res.status}`);
+        return res.json();
+      })
+      .then((rooms) => sendResponse({ ok: true, rooms }))
+      .catch(() => sendResponse({ ok: false }));
+    return true;
+  }
+
+  if (message.type === "fetchMessages") {
+    fetch(
+      `https://api.chatwork.com/v2/rooms/${message.roomId}/messages?force=0`,
+      { headers: { "X-ChatWorkToken": token } },
+    )
+      .then((res) => {
+        if (!res.ok) throw new Error(`API error: ${res.status}`);
+        return res.json();
+      })
+      .then((messages) => sendResponse({ ok: true, messages }))
+      .catch(() => sendResponse({ ok: false }));
+    return true;
+  }
 });
