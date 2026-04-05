@@ -9,6 +9,8 @@ export interface PluginConfig {
   requiresApiKey?: boolean;
   /** APIキー入力欄のラベル */
   apiKeyLabel?: string;
+  /** デフォルトの有効/無効（省略時はtrue） */
+  defaultEnabled?: boolean;
 }
 
 export interface CwPlugin {

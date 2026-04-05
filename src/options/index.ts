@@ -1,4 +1,5 @@
 import { PLUGIN_CONFIGS } from "../shared/plugin-configs";
+import { createRoomMemberPicker, updatePickerSelection } from "./room-member-picker";
 import {
   ALL_BUTTON_METAS,
   getDefaultEnabledIds,
@@ -38,7 +39,7 @@ function createPluginCard(
   const card = document.createElement("div");
   card.className = "plugin-card";
 
-  const enabled = settings?.enabled ?? true;
+  const enabled = settings?.enabled ?? (config.defaultEnabled ?? true);
 
   card.innerHTML = `
     <div class="plugin-info">
@@ -188,7 +189,7 @@ async function createQuickTaskConfig(): Promise<HTMLElement> {
   return section;
 }
 
-// ===== メンショングループ設定（元のpopup.js方式） =====
+// ===== メンショングループ設定 =====
 const MG_STORAGE_KEY = "quickMentionGroups";
 
 interface MgMember {
@@ -200,33 +201,6 @@ interface MgGroup {
   members: MgMember[];
 }
 
-function parseMgMembers(text: string): MgMember[] {
-  const members: MgMember[] = [];
-  const lines = text.split("\n").filter((l) => l.trim());
-  for (const line of lines) {
-    // 形式1: [To:12345678]田中太郎さん
-    const toMatch = line.match(/\[To:(\d+)\]\s*(.+?)(?:さん)?$/);
-    if (toMatch) {
-      if (!members.some((m) => m.accountId === toMatch[1])) {
-        members.push({ accountId: toMatch[1], name: toMatch[2].trim() });
-      }
-      continue;
-    }
-    // 形式2: 12345678,田中太郎 / 12345678 田中太郎
-    const parts = line.split(/[,\t\s]+/);
-    if (parts.length >= 2 && /^\d+$/.test(parts[0])) {
-      if (!members.some((m) => m.accountId === parts[0])) {
-        members.push({ accountId: parts[0], name: parts.slice(1).join(" ").trim() });
-      }
-    }
-  }
-  return members;
-}
-
-function mgMembersToText(members: MgMember[]): string {
-  return members.map((m) => `${m.accountId} ${m.name}`).join("\n");
-}
-
 async function createMentionGroupConfig(): Promise<HTMLElement> {
   const section = document.createElement("div");
 
@@ -235,44 +209,116 @@ async function createMentionGroupConfig(): Promise<HTMLElement> {
 
   section.innerHTML = `
     <div class="plugin-description" style="margin-top: 8px;">
-      メンバーを1行ずつ入力（<code>accountId 名前</code> または <code>[To:accountId]名前さん</code> をコピペ）
+      グループ名を入力し、ルームからメンバーを選択して追加します。
     </div>
     <div id="scw-mg-group-list" style="margin-top: 12px;"></div>
     <div style="margin-top: 12px; display: flex; gap: 8px;">
       <button id="scw-mg-add" class="button-config-type" style="cursor: pointer; padding: 6px 12px; border: 1px solid #ddd; border-radius: 6px; background: #f8f8f8;">+ グループ追加</button>
-      <button id="scw-mg-save" class="button-config-type" style="cursor: pointer; padding: 6px 12px; border: none; border-radius: 6px; background: #4a9eff; color: white;">保存</button>
     </div>
-    <div id="scw-mg-status" style="margin-top: 8px; font-size: 12px;"></div>
   `;
 
   const listEl = section.querySelector("#scw-mg-group-list")!;
 
-  function createGroupCard(name = "", membersText = ""): HTMLElement {
+  function createGroupCard(group?: MgGroup): HTMLElement {
     const card = document.createElement("div");
     card.style.cssText = "border: 1px solid #eee; border-radius: 8px; padding: 12px; margin-bottom: 10px; background: #fafbfc;";
+
+    const members: MgMember[] = group?.members ? [...group.members] : [];
+
     card.innerHTML = `
       <div style="display: flex; align-items: center; gap: 8px; margin-bottom: 8px;">
-        <input type="text" class="scw-mg-name api-key-input" placeholder="グループ名（例: 開発チーム）" value="${escapeHtml(name)}" style="flex: 1;">
+        <input type="text" class="scw-mg-name api-key-input" placeholder="グループ名（例: 開発チーム）" value="${escapeHtml(group?.name ?? "")}" style="flex: 1;">
         <button class="scw-mg-delete" style="border: none; background: none; color: #ccc; cursor: pointer; font-size: 18px; padding: 2px 6px;">&times;</button>
       </div>
-      <textarea class="scw-mg-members api-key-input" placeholder="メンバーを1行ずつ入力&#10;例: 12345678 田中太郎&#10;または [To:12345678]田中太郎さん" style="width: 100%; min-height: 80px; font-family: monospace; font-size: 12px; line-height: 1.6; resize: vertical;">${escapeHtml(membersText)}</textarea>
-      <div class="scw-mg-count" style="font-size: 11px; color: #888; margin-top: 4px; text-align: right;"></div>
+      <div class="scw-mg-picker-area"></div>
+      <div class="scw-mg-chips" style="display:flex;flex-wrap:wrap;gap:6px;margin-top:8px;min-height:24px;"></div>
     `;
 
-    const textarea = card.querySelector<HTMLTextAreaElement>(".scw-mg-members")!;
-    const countEl = card.querySelector(".scw-mg-count")!;
-    const updateCount = () => {
-      const count = parseMgMembers(textarea.value).length;
-      countEl.textContent = count > 0 ? `${count}人` : "";
-    };
-    textarea.addEventListener("input", updateCount);
-    updateCount();
+    const pickerArea = card.querySelector(".scw-mg-picker-area")!;
+    const chipsEl = card.querySelector(".scw-mg-chips")!;
+    const nameInput = card.querySelector<HTMLInputElement>(".scw-mg-name")!;
 
-    card.querySelector(".scw-mg-delete")!.addEventListener("click", () => {
-      card.remove();
+    function renderChips(): void {
+      chipsEl.innerHTML = "";
+      if (members.length === 0) {
+        chipsEl.innerHTML = '<span style="font-size:12px;color:#888;">メンバーなし</span>';
+        return;
+      }
+      for (const m of members) {
+        const chip = document.createElement("span");
+        chip.style.cssText = "display:inline-flex;align-items:center;gap:4px;padding:4px 8px;border-radius:999px;background:#fff;border:1px solid #eee;font-size:12px;font-weight:600;";
+        chip.innerHTML = `
+          ${escapeHtml(m.name)}
+          <button data-remove-mid="${m.accountId}" style="border:none;background:none;cursor:pointer;color:#ccc;font-size:14px;padding:0 2px;">&times;</button>
+        `;
+        chip.querySelector("button")!.addEventListener("click", async () => {
+          const idx = members.findIndex((x) => x.accountId === m.accountId);
+          if (idx >= 0) members.splice(idx, 1);
+          renderChips();
+          updatePickerSelection(pickerArea as HTMLElement, pickerPrefix, new Set(members.map((x) => Number(x.accountId))));
+          await saveAllGroups();
+        });
+        chipsEl.appendChild(chip);
+      }
+    }
+
+    const pickerPrefix = `scw-mg-picker-${Date.now()}-${Math.random().toString(36).slice(2, 6)}`;
+
+    createRoomMemberPicker({
+      prefix: pickerPrefix,
+      selectedIds: new Set(members.map((m) => Number(m.accountId))),
+      onChange: async (accountId, name, checked) => {
+        if (checked) {
+          if (!members.some((m) => m.accountId === String(accountId))) {
+            members.push({ accountId: String(accountId), name });
+          }
+        } else {
+          const idx = members.findIndex((m) => m.accountId === String(accountId));
+          if (idx >= 0) members.splice(idx, 1);
+        }
+        renderChips();
+        await saveAllGroups();
+      },
+    }).then((picker) => {
+      pickerArea.appendChild(picker);
     });
 
+    // グループ名変更時も保存
+    let nameDebounce: ReturnType<typeof setTimeout>;
+    nameInput.addEventListener("input", () => {
+      clearTimeout(nameDebounce);
+      nameDebounce = setTimeout(() => saveAllGroups(), 500);
+    });
+
+    renderChips();
+
+    card.querySelector(".scw-mg-delete")!.addEventListener("click", async () => {
+      card.remove();
+      await saveAllGroups();
+    });
+
+    // カードにメンバー配列を紐付け（保存時に参照）
+    (card as unknown as { __members: MgMember[] }).__members = members;
+
     return card;
+  }
+
+  async function saveAllGroups(): Promise<void> {
+    const cards = listEl.querySelectorAll<HTMLElement & { __members?: MgMember[] }>(":scope > div");
+    const newGroups: MgGroup[] = [];
+    cards.forEach((card) => {
+      const nameInput = card.querySelector<HTMLInputElement>(".scw-mg-name");
+      const members = card.__members;
+      if (!nameInput || !members) return;
+      const name = nameInput.value.trim();
+      if (name && members.length > 0) {
+        newGroups.push({ name, members: [...members] });
+      }
+    });
+
+    await chrome.storage.sync.set({ [MG_STORAGE_KEY]: newGroups });
+    const total = newGroups.reduce((sum, g) => sum + g.members.length, 0);
+    showStatus(`${newGroups.length}グループ（計${total}人）を保存しました`);
   }
 
   // 既存グループを表示
@@ -280,32 +326,12 @@ async function createMentionGroupConfig(): Promise<HTMLElement> {
     listEl.appendChild(createGroupCard());
   } else {
     for (const g of groups) {
-      listEl.appendChild(createGroupCard(g.name, mgMembersToText(g.members)));
+      listEl.appendChild(createGroupCard(g));
     }
   }
 
   section.querySelector("#scw-mg-add")!.addEventListener("click", () => {
     listEl.appendChild(createGroupCard());
-  });
-
-  section.querySelector("#scw-mg-save")!.addEventListener("click", () => {
-    const cards = listEl.querySelectorAll<HTMLElement>("div[style]");
-    const newGroups: MgGroup[] = [];
-    cards.forEach((card) => {
-      const nameInput = card.querySelector<HTMLInputElement>(".scw-mg-name");
-      const textarea = card.querySelector<HTMLTextAreaElement>(".scw-mg-members");
-      if (!nameInput || !textarea) return;
-      const name = nameInput.value.trim();
-      const members = parseMgMembers(textarea.value);
-      if (name && members.length > 0) {
-        newGroups.push({ name, members });
-      }
-    });
-
-    chrome.storage.sync.set({ [MG_STORAGE_KEY]: newGroups }, () => {
-      const total = newGroups.reduce((sum, g) => sum + g.members.length, 0);
-      showStatus(`${newGroups.length}グループ（計${total}人）を保存しました`);
-    });
   });
 
   return section;
@@ -343,6 +369,123 @@ async function createApiTokenSection(): Promise<HTMLElement> {
   });
 
   return section;
+}
+
+// ===== VIP Notify 設定 =====
+
+interface VipEntry {
+  accountId: number;
+  name: string;
+  color: string;
+}
+
+async function createVipNotifyConfig(): Promise<HTMLElement> {
+  const section = document.createElement("div");
+
+  const config = await getPluginConfig<{ vips?: VipEntry[] }>("vip-notify");
+  const vips: VipEntry[] = config?.vips ?? [];
+
+  section.innerHTML = `
+    <div class="plugin-description" style="margin-top: 8px;">
+      ルームを選択してメンバーからVIPを登録します。バッジ色はVIPごとに設定できます。
+    </div>
+    <div class="scw-vip-picker-area"></div>
+    <div style="margin-top: 12px;">
+      <label class="api-key-label">バッジ色</label>
+      <div style="display: flex; gap: 6px; margin-top: 4px; align-items: center;">
+        <button class="scw-vip-color-btn" data-color="#F44336" style="width:24px;height:24px;border-radius:50%;border:2px solid #333;background:#F44336;cursor:pointer;"></button>
+        <button class="scw-vip-color-btn" data-color="#2196F3" style="width:24px;height:24px;border-radius:50%;border:2px solid transparent;background:#2196F3;cursor:pointer;"></button>
+        <button class="scw-vip-color-btn" data-color="#FFC107" style="width:24px;height:24px;border-radius:50%;border:2px solid transparent;background:#FFC107;cursor:pointer;"></button>
+        <button class="scw-vip-color-btn" data-color="#4CAF50" style="width:24px;height:24px;border-radius:50%;border:2px solid transparent;background:#4CAF50;cursor:pointer;"></button>
+        <button class="scw-vip-color-btn" data-color="#9C27B0" style="width:24px;height:24px;border-radius:50%;border:2px solid transparent;background:#9C27B0;cursor:pointer;"></button>
+        <input type="color" id="scw-vip-color-picker" value="#F44336" style="width:24px;height:24px;border:1px solid #ddd;border-radius:50%;padding:0;cursor:pointer;">
+      </div>
+    </div>
+    <div style="margin-top: 12px;">
+      <label class="api-key-label">登録済みVIP</label>
+      <div id="scw-vip-chips" style="display:flex;flex-wrap:wrap;gap:6px;margin-top:4px;min-height:24px;"></div>
+    </div>
+  `;
+
+  let selectedColor = "#F44336";
+
+  // カラープリセット
+  section.querySelectorAll<HTMLButtonElement>(".scw-vip-color-btn").forEach((btn) => {
+    btn.addEventListener("click", () => {
+      selectedColor = btn.dataset.color!;
+      section.querySelectorAll<HTMLButtonElement>(".scw-vip-color-btn").forEach((b) => {
+        b.style.borderColor = b === btn ? "#333" : "transparent";
+      });
+      section.querySelector<HTMLInputElement>("#scw-vip-color-picker")!.value = selectedColor;
+    });
+  });
+
+  section.querySelector<HTMLInputElement>("#scw-vip-color-picker")!.addEventListener("input", (e) => {
+    selectedColor = (e.target as HTMLInputElement).value;
+    section.querySelectorAll<HTMLButtonElement>(".scw-vip-color-btn").forEach((b) => {
+      b.style.borderColor = "transparent";
+    });
+  });
+
+  // 共通ピッカー
+  const pickerArea = section.querySelector(".scw-vip-picker-area")!;
+  const picker = await createRoomMemberPicker({
+    prefix: "scw-vip",
+    selectedIds: new Set(vips.map((v) => v.accountId)),
+    onChange: async (accountId, name, checked) => {
+      const cfg = await getPluginConfig<{ vips?: VipEntry[] }>("vip-notify");
+      let updatedVips = cfg?.vips ?? [];
+
+      if (checked) {
+        if (!updatedVips.some((v) => v.accountId === accountId)) {
+          updatedVips.push({ accountId, name, color: selectedColor });
+        }
+      } else {
+        updatedVips = updatedVips.filter((v) => v.accountId !== accountId);
+      }
+
+      await setPluginConfig("vip-notify", { vips: updatedVips });
+      showStatus("VIPを保存しました");
+      renderVipChips(section, updatedVips);
+    },
+  });
+  pickerArea.appendChild(picker);
+
+  renderVipChips(section, vips);
+
+  return section;
+}
+
+function renderVipChips(container: HTMLElement, vips: VipEntry[]): void {
+  const chipsEl = container.querySelector<HTMLElement>("#scw-vip-chips")!;
+  chipsEl.innerHTML = "";
+
+  if (vips.length === 0) {
+    chipsEl.innerHTML = '<span style="font-size:12px;color:#888;">まだ追加されていません</span>';
+    return;
+  }
+
+  for (const vip of vips) {
+    const chip = document.createElement("span");
+    chip.style.cssText = "display:inline-flex;align-items:center;gap:4px;padding:4px 8px;border-radius:999px;background:#fff;border:1px solid #eee;font-size:12px;font-weight:600;";
+    chip.innerHTML = `
+      <span style="width:10px;height:10px;border-radius:50%;background:${escapeHtml(vip.color)};flex-shrink:0;"></span>
+      ${escapeHtml(vip.name)}
+      <button data-remove-vip="${vip.accountId}" style="border:none;background:none;cursor:pointer;color:#ccc;font-size:14px;padding:0 2px;">&times;</button>
+    `;
+
+    chip.querySelector("button")!.addEventListener("click", async () => {
+      const cfg = await getPluginConfig<{ vips?: VipEntry[] }>("vip-notify");
+      const updated = (cfg?.vips ?? []).filter((v) => v.accountId !== vip.accountId);
+      await setPluginConfig("vip-notify", { vips: updated });
+      showStatus("VIPを削除しました");
+      renderVipChips(container, updated);
+      // ピッカーのチェックも更新
+      updatePickerSelection(container, "scw-vip", new Set(updated.map((v) => v.accountId)));
+    });
+
+    chipsEl.appendChild(chip);
+  }
 }
 
 function appendCollapsible(card: HTMLElement, label: string, content: HTMLElement): void {
@@ -393,6 +536,11 @@ async function render(): Promise<void> {
     if (config.id === "mention-group") {
       const mgConfig = await createMentionGroupConfig();
       appendCollapsible(card, "グループ管理", mgConfig);
+    }
+
+    if (config.id === "vip-notify") {
+      const vipConfig = await createVipNotifyConfig();
+      appendCollapsible(card, "VIP管理", vipConfig);
     }
   }
 }
