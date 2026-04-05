@@ -253,13 +253,42 @@ function clearAllVipBadges(): void {
   });
 }
 
+function waitForRoomList(): Promise<void> {
+  return new Promise((resolve) => {
+    // 既にDOMにあればすぐ返す
+    if (document.querySelector(ROOM_ITEM_SELECTOR)) {
+      resolve();
+      return;
+    }
+
+    console.log(LOG_PREFIX, "ルーム一覧のDOM描画を待機中...");
+    const observer = new MutationObserver(() => {
+      if (document.querySelector(ROOM_ITEM_SELECTOR)) {
+        observer.disconnect();
+        console.log(LOG_PREFIX, "ルーム一覧のDOM描画を検知");
+        resolve();
+      }
+    });
+    observer.observe(document.body, { childList: true, subtree: true });
+
+    // 30秒でタイムアウト
+    setTimeout(() => {
+      observer.disconnect();
+      console.warn(LOG_PREFIX, "ルーム一覧の待機タイムアウト（30秒）");
+      resolve();
+    }, 30_000);
+  });
+}
+
 export function initVipNotify(): void {
   console.log(LOG_PREFIX, "初期化開始");
   injectStyles();
-  // 初回スキャン
-  scan();
-  scanTimer = setInterval(scan, SCAN_INTERVAL_MS);
-  console.log(LOG_PREFIX, `ポーリング開始: ${SCAN_INTERVAL_MS / 1000}秒間隔`);
+  // ルーム一覧のDOM描画を待ってから初回スキャン＋ポーリング開始
+  waitForRoomList().then(() => {
+    scan();
+    scanTimer = setInterval(scan, SCAN_INTERVAL_MS);
+    console.log(LOG_PREFIX, `ポーリング開始: ${SCAN_INTERVAL_MS / 1000}秒間隔`);
+  });
 }
 
 export function destroyVipNotify(): void {
