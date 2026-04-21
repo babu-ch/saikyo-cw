@@ -9,7 +9,6 @@ import {
   getPluginSettings,
   getPluginConfig,
   setPluginEnabled,
-  setPluginApiKey,
   setPluginConfig,
   getApiToken,
   setApiToken,
@@ -40,21 +39,11 @@ function createPluginCard(
 
   card.innerHTML = `
     <div class="plugin-info">
-      <div class="plugin-name">${escapeHtml(config.name)}</div>
+      <div class="plugin-name">
+        ${escapeHtml(config.name)}
+        ${config.requiresApiKey ? '<span class="api-required-badge">APIキー必須</span>' : ""}
+      </div>
       <div class="plugin-description">${escapeHtml(config.description)}</div>
-      ${
-        config.requiresApiKey
-          ? `
-        <div class="plugin-config">
-          <label class="api-key-label">${escapeHtml(config.apiKeyLabel ?? "API Key")}</label>
-          <input type="password" class="api-key-input"
-                 placeholder="APIキーを入力"
-                 value="${escapeHtml(settings?.apiKey ?? "")}"
-                 data-plugin-id="${escapeHtml(config.id)}">
-        </div>
-      `
-          : ""
-      }
     </div>
     <label class="toggle">
       <input type="checkbox" ${enabled ? "checked" : ""} data-plugin-id="${escapeHtml(config.id)}">
@@ -69,18 +58,6 @@ function createPluginCard(
     await setPluginEnabled(config.id, checkbox.checked);
     showStatus(`${config.name} を${checkbox.checked ? "有効" : "無効"}にしました`);
   });
-
-  if (config.requiresApiKey) {
-    const apiKeyInput = card.querySelector<HTMLInputElement>(".api-key-input")!;
-    let debounce: ReturnType<typeof setTimeout>;
-    apiKeyInput.addEventListener("input", () => {
-      clearTimeout(debounce);
-      debounce = setTimeout(async () => {
-        await setPluginApiKey(config.id, apiKeyInput.value);
-        showStatus("APIキーを保存しました");
-      }, 500);
-    });
-  }
 
   return card;
 }
@@ -344,7 +321,7 @@ async function createApiTokenSection(): Promise<HTMLElement> {
     <div class="plugin-info">
       <div class="plugin-name">Chatwork APIトークン</div>
       <div class="plugin-description">
-        API連携が必要なプラグインで共通利用されます。<br>
+        API連携が必要なプラグインで共通利用されます（必須ではありません）。<br>
         Chatwork右上メニュー → <strong>サービス連携</strong> → <strong>APIトークン</strong> で取得できます。
       </div>
       <div class="plugin-config" style="margin-top: 8px;">
