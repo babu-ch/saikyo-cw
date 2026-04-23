@@ -2,7 +2,7 @@ import type { CwPlugin } from "../types";
 import { observeDOM } from "../../../shared/mutation-observer";
 import { sleep } from "../../../shared/dom-helpers";
 import { getPluginConfig } from "../../../shared/storage";
-import { ALL_REACTIONS } from "../../../shared/reactions";
+import { ALL_REACTIONS, type QuickReaction } from "../../../shared/reactions";
 
 export type HoverReactionAlign = "right" | "left";
 
@@ -13,9 +13,11 @@ const BTN_CLASS = "scw-hover-reaction-row__btn";
 const STYLE_ID = "scw-hover-reaction-style";
 const MARKER = "__scw_hover_reaction";
 const EMOTICON_BASE = "https://assets.chatwork.com/images/emoticon2x/";
+const ICON_SIZE = 20;
 
 interface HoverReactionConfig {
   alignment?: HoverReactionAlign;
+  stopAnimation?: boolean;
 }
 
 let observer: MutationObserver | null = null;
@@ -52,9 +54,10 @@ const STYLES = `
     background-color: rgba(127, 127, 127, 0.18);
     border-color: rgba(127, 127, 127, 0.35);
   }
+  .${BTN_CLASS} canvas,
   .${BTN_CLASS} img {
-    width: 20px;
-    height: 20px;
+    width: ${ICON_SIZE}px;
+    height: ${ICON_SIZE}px;
     display: block;
   }
 `;
@@ -85,7 +88,6 @@ async function sendReaction(actionNav: Element, label: string): Promise<void> {
   if (!navBtn) return;
   navBtn.click();
 
-  // reaction-list (popup) が表示されるのを最大400ms待つ
   for (let i = 0; i < 20; i++) {
     const list = document.querySelector('[data-testid="reaction-list"]');
     if (list) {
@@ -99,7 +101,43 @@ async function sendReaction(actionNav: Element, label: string): Promise<void> {
   }
 }
 
-function buildRow(actionNav: Element, align: HoverReactionAlign): HTMLElement {
+function buildIcon(r: QuickReaction, stopAnimation: boolean): HTMLElement {
+  const src = `${EMOTICON_BASE}${r.emoticon}`;
+
+  if (!stopAnimation) {
+    // 素のgifアニメをそのまま表示
+    const img = document.createElement("img");
+    img.src = src;
+    img.alt = r.describe;
+    return img;
+  }
+
+  // gifを<canvas>に描画して静止画化（ループが止まる）
+  const canvas = document.createElement("canvas");
+  canvas.width = ICON_SIZE;
+  canvas.height = ICON_SIZE;
+  canvas.setAttribute("aria-label", r.describe);
+
+  const img = new Image();
+  img.src = src;
+  img.onload = () => {
+    const ctx = canvas.getContext("2d");
+    ctx?.drawImage(img, 0, 0, ICON_SIZE, ICON_SIZE);
+  };
+  img.onerror = () => {
+    const fallback = document.createElement("img");
+    fallback.src = src;
+    fallback.alt = r.describe;
+    canvas.replaceWith(fallback);
+  };
+  return canvas;
+}
+
+function buildRow(
+  actionNav: Element,
+  align: HoverReactionAlign,
+  stopAnimation: boolean,
+): HTMLElement {
   const row = document.createElement("ul");
   row.className = ROW_CLASS;
   row.setAttribute("role", "toolbar");
@@ -116,10 +154,7 @@ function buildRow(actionNav: Element, align: HoverReactionAlign): HTMLElement {
     btn.className = BTN_CLASS;
     btn.setAttribute("aria-label", r.label);
     btn.title = r.label;
-    const img = document.createElement("img");
-    img.src = `${EMOTICON_BASE}${r.emoticon}`;
-    img.alt = r.describe;
-    btn.appendChild(img);
+    btn.appendChild(buildIcon(r, stopAnimation));
     btn.addEventListener("click", (e) => {
       e.stopPropagation();
       e.preventDefault();
@@ -139,8 +174,13 @@ async function injectRow(actionNav: Element): Promise<void> {
 
   const config = (await getPluginConfig<HoverReactionConfig>(PLUGIN_ID)) ?? {};
   const align: HoverReactionAlign = config.alignment ?? "right";
+  const stopAnimation = config.stopAnimation ?? false;
   if (!enabled || !actionNav.isConnected) return;
-  actionNav.insertAdjacentElement("afterend", buildRow(actionNav, align));
+
+  actionNav.insertAdjacentElement(
+    "afterend",
+    buildRow(actionNav, align, stopAnimation),
+  );
 }
 
 export const hoverReactionPlugin: CwPlugin = {

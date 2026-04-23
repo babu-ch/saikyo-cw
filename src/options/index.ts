@@ -684,10 +684,12 @@ async function createAutoReadConfig(): Promise<HTMLElement> {
 async function createHoverReactionConfig(): Promise<HTMLElement> {
   const section = document.createElement("div");
 
-  const config = await getPluginConfig<{ alignment?: "right" | "left" }>(
-    "hover-reaction",
-  );
+  const config = await getPluginConfig<{
+    alignment?: "right" | "left";
+    stopAnimation?: boolean;
+  }>("hover-reaction");
   const isLeft = (config?.alignment ?? "right") === "left";
+  const stopAnimation = config?.stopAnimation ?? false;
 
   section.innerHTML = `
     <div style="margin-top: 8px; display: flex; gap: 16px; align-items: center;">
@@ -700,6 +702,13 @@ async function createHoverReactionConfig(): Promise<HTMLElement> {
         <span>右寄せ 👉</span>
       </label>
     </div>
+    <div style="margin-top: 12px; display: flex; align-items: center; justify-content: space-between; gap: 12px;">
+      <span>絵文字のアニメーションを停止<span style="color: #888; font-size: 11px; margin-left: 6px;">（静止画で表示）</span></span>
+      <label class="toggle">
+        <input type="checkbox" id="scw-hr-stop-anim" ${stopAnimation ? "checked" : ""}>
+        <span class="toggle-slider"></span>
+      </label>
+    </div>
   `;
 
   section
@@ -708,9 +717,23 @@ async function createHoverReactionConfig(): Promise<HTMLElement> {
       input.addEventListener("change", async () => {
         if (!input.checked) return;
         const alignment = input.value as "right" | "left";
-        await setPluginConfig("hover-reaction", { alignment });
+        const existing =
+          (await getPluginConfig<Record<string, unknown>>("hover-reaction")) ?? {};
+        await setPluginConfig("hover-reaction", { ...existing, alignment });
         showStatus(`表示位置を${alignment === "left" ? "左寄せ" : "右寄せ"}にしました`);
       });
+    });
+
+  section
+    .querySelector<HTMLInputElement>("#scw-hr-stop-anim")!
+    .addEventListener("change", async (e) => {
+      const stop = (e.target as HTMLInputElement).checked;
+      const existing =
+        (await getPluginConfig<Record<string, unknown>>("hover-reaction")) ?? {};
+      await setPluginConfig("hover-reaction", { ...existing, stopAnimation: stop });
+      showStatus(
+        stop ? "アニメーションを停止します" : "アニメーションを有効にします",
+      );
     });
 
   return section;
