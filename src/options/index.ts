@@ -6,6 +6,10 @@ import {
   getDefaultEnabledIds,
 } from "../shared/input-tools-buttons";
 import {
+  ALL_REACTIONS,
+  DEFAULT_QUICK_REACTIONS,
+} from "../shared/reactions";
+import {
   getPluginSettings,
   getPluginConfig,
   setPluginEnabled,
@@ -681,6 +685,54 @@ async function createAutoReadConfig(): Promise<HTMLElement> {
   return section;
 }
 
+async function createHoverReactionConfig(): Promise<HTMLElement> {
+  const section = document.createElement("div");
+
+  const config = await getPluginConfig<{ reactions?: string[] }>(
+    "hover-reaction",
+  );
+  const enabledLabels = new Set(config?.reactions ?? DEFAULT_QUICK_REACTIONS);
+
+  section.innerHTML = `
+    <div style="margin-top: 8px; font-size: 12px; color: #666;">
+      アクションメニューの下に表示するリアクションを選択
+    </div>
+    <div class="button-config" style="margin-top: 8px;"></div>
+  `;
+
+  const container = section.querySelector(".button-config")!;
+
+  for (const r of ALL_REACTIONS) {
+    const label = document.createElement("label");
+    label.className = "button-config-item";
+    label.innerHTML = `
+      <input type="checkbox" ${enabledLabels.has(r.label) ? "checked" : ""} data-reaction-label="${escapeHtml(r.label)}">
+      <img src="https://assets.chatwork.com/images/emoticon2x/${escapeHtml(r.emoticon)}" alt="${escapeHtml(r.describe)}" style="width: 20px; height: 20px; vertical-align: middle; margin: 0 4px;">
+      <span class="button-config-label">${escapeHtml(r.label)}</span>
+      <span class="button-config-desc">${escapeHtml(r.describe)}</span>
+    `;
+
+    const cb = label.querySelector<HTMLInputElement>("input")!;
+    cb.addEventListener("change", async () => {
+      if (cb.checked) {
+        enabledLabels.add(r.label);
+      } else {
+        enabledLabels.delete(r.label);
+      }
+      // 定義順で保存
+      const ordered = ALL_REACTIONS.filter((x) => enabledLabels.has(x.label)).map(
+        (x) => x.label,
+      );
+      await setPluginConfig("hover-reaction", { reactions: ordered });
+      showStatus("ホバーリアクション設定を保存しました");
+    });
+
+    container.appendChild(label);
+  }
+
+  return section;
+}
+
 function appendCollapsible(card: HTMLElement, label: string, content: HTMLElement): void {
   const pluginInfo = card.querySelector(".plugin-info");
   if (!pluginInfo) return;
@@ -729,6 +781,11 @@ async function render(): Promise<void> {
     if (config.id === "mention-group") {
       const mgConfig = await createMentionGroupConfig();
       appendCollapsible(card, "グループ管理", mgConfig);
+    }
+
+    if (config.id === "hover-reaction") {
+      const hrConfig = await createHoverReactionConfig();
+      appendCollapsible(card, "表示するリアクション", hrConfig);
     }
 
     if (config.id === "vip-notify") {

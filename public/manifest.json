@@ -1,7 +1,7 @@
 {
   "manifest_version": 3,
   "name": "ぼくたちがかんがえた最強のチャトワ",
-  "version": "0.7.0",
+  "version": "0.8.0",
   "description": "Chatwork拡張機能をまとめたAll-in-one拡張。プラグインごとにOn/Off可能",
   "permissions": ["storage"],
   "content_security_policy": {
