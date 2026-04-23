@@ -2,11 +2,9 @@ import type { CwPlugin } from "../types";
 import { observeDOM } from "../../../shared/mutation-observer";
 import { sleep } from "../../../shared/dom-helpers";
 import { getPluginConfig } from "../../../shared/storage";
-import {
-  ALL_REACTIONS,
-  DEFAULT_QUICK_REACTIONS,
-  type QuickReaction,
-} from "../../../shared/reactions";
+import { ALL_REACTIONS } from "../../../shared/reactions";
+
+export type HoverReactionAlign = "right" | "left";
 
 const PLUGIN_ID = "hover-reaction";
 const ACTION_NAV_SELECTOR = "ul.messageActionNav";
@@ -17,7 +15,7 @@ const MARKER = "__scw_hover_reaction";
 const EMOTICON_BASE = "https://assets.chatwork.com/images/emoticon2x/";
 
 interface HoverReactionConfig {
-  reactions?: string[];
+  alignment?: HoverReactionAlign;
 }
 
 let observer: MutationObserver | null = null;
@@ -25,6 +23,8 @@ let enabled = false;
 
 const STYLES = `
   .${ROW_CLASS} {
+    position: absolute;
+    top: 100%;
     display: inline-flex;
     width: max-content;
     max-width: 100%;
@@ -99,12 +99,17 @@ async function sendReaction(actionNav: Element, label: string): Promise<void> {
   }
 }
 
-function buildRow(actionNav: Element, reactions: QuickReaction[]): HTMLElement {
+function buildRow(actionNav: Element, align: HoverReactionAlign): HTMLElement {
   const row = document.createElement("ul");
   row.className = ROW_CLASS;
   row.setAttribute("role", "toolbar");
+  if (align === "left") {
+    row.style.left = "0";
+  } else {
+    row.style.right = "0";
+  }
 
-  for (const r of reactions) {
+  for (const r of ALL_REACTIONS) {
     const li = document.createElement("li");
     const btn = document.createElement("button");
     btn.type = "button";
@@ -126,32 +131,23 @@ function buildRow(actionNav: Element, reactions: QuickReaction[]): HTMLElement {
   return row;
 }
 
-async function getReactions(): Promise<QuickReaction[]> {
-  const config = (await getPluginConfig<HoverReactionConfig>(PLUGIN_ID)) ?? {};
-  const labels = new Set(config.reactions ?? DEFAULT_QUICK_REACTIONS);
-  return ALL_REACTIONS.filter((r) => labels.has(r.label));
-}
-
 async function injectRow(actionNav: Element): Promise<void> {
   if (!enabled) return;
   const rec = actionNav as unknown as Record<string, unknown>;
   if (rec[MARKER]) return;
   rec[MARKER] = true;
 
-  const reactions = await getReactions();
-  if (reactions.length === 0) return;
-  // 非同期中にdestroyされた可能性
+  const config = (await getPluginConfig<HoverReactionConfig>(PLUGIN_ID)) ?? {};
+  const align: HoverReactionAlign = config.alignment ?? "right";
   if (!enabled || !actionNav.isConnected) return;
-
-  const row = buildRow(actionNav, reactions);
-  actionNav.insertAdjacentElement("afterend", row);
+  actionNav.insertAdjacentElement("afterend", buildRow(actionNav, align));
 }
 
 export const hoverReactionPlugin: CwPlugin = {
   config: {
     id: PLUGIN_ID,
     name: "ホバーリアクション",
-    description: "ホバーメニューの下に、選択したリアクションをワンクリック送信できるボタンを表示",
+    description: "ホバーメニューの下にリアクション絵文字をワンクリック送信できるボタンを表示",
   },
   init() {
     enabled = true;

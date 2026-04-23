@@ -6,10 +6,6 @@ import {
   getDefaultEnabledIds,
 } from "../shared/input-tools-buttons";
 import {
-  ALL_REACTIONS,
-  DEFAULT_QUICK_REACTIONS,
-} from "../shared/reactions";
-import {
   getPluginSettings,
   getPluginConfig,
   setPluginEnabled,
@@ -688,47 +684,34 @@ async function createAutoReadConfig(): Promise<HTMLElement> {
 async function createHoverReactionConfig(): Promise<HTMLElement> {
   const section = document.createElement("div");
 
-  const config = await getPluginConfig<{ reactions?: string[] }>(
+  const config = await getPluginConfig<{ alignment?: "right" | "left" }>(
     "hover-reaction",
   );
-  const enabledLabels = new Set(config?.reactions ?? DEFAULT_QUICK_REACTIONS);
+  const isLeft = (config?.alignment ?? "right") === "left";
 
   section.innerHTML = `
-    <div style="margin-top: 8px; font-size: 12px; color: #666;">
-      アクションメニューの下に表示するリアクションを選択
+    <div style="margin-top: 8px; display: flex; gap: 16px; align-items: center;">
+      <label style="display: flex; align-items: center; gap: 6px; cursor: pointer;">
+        <input type="radio" name="scw-hr-align" value="left" ${isLeft ? "checked" : ""}>
+        <span>👈 左寄せ</span>
+      </label>
+      <label style="display: flex; align-items: center; gap: 6px; cursor: pointer;">
+        <input type="radio" name="scw-hr-align" value="right" ${!isLeft ? "checked" : ""}>
+        <span>右寄せ 👉</span>
+      </label>
     </div>
-    <div class="button-config" style="margin-top: 8px;"></div>
   `;
 
-  const container = section.querySelector(".button-config")!;
-
-  for (const r of ALL_REACTIONS) {
-    const label = document.createElement("label");
-    label.className = "button-config-item";
-    label.innerHTML = `
-      <input type="checkbox" ${enabledLabels.has(r.label) ? "checked" : ""} data-reaction-label="${escapeHtml(r.label)}">
-      <img src="https://assets.chatwork.com/images/emoticon2x/${escapeHtml(r.emoticon)}" alt="${escapeHtml(r.describe)}" style="width: 20px; height: 20px; vertical-align: middle; margin: 0 4px;">
-      <span class="button-config-label">${escapeHtml(r.label)}</span>
-      <span class="button-config-desc">${escapeHtml(r.describe)}</span>
-    `;
-
-    const cb = label.querySelector<HTMLInputElement>("input")!;
-    cb.addEventListener("change", async () => {
-      if (cb.checked) {
-        enabledLabels.add(r.label);
-      } else {
-        enabledLabels.delete(r.label);
-      }
-      // 定義順で保存
-      const ordered = ALL_REACTIONS.filter((x) => enabledLabels.has(x.label)).map(
-        (x) => x.label,
-      );
-      await setPluginConfig("hover-reaction", { reactions: ordered });
-      showStatus("ホバーリアクション設定を保存しました");
+  section
+    .querySelectorAll<HTMLInputElement>('input[name="scw-hr-align"]')
+    .forEach((input) => {
+      input.addEventListener("change", async () => {
+        if (!input.checked) return;
+        const alignment = input.value as "right" | "left";
+        await setPluginConfig("hover-reaction", { alignment });
+        showStatus(`表示位置を${alignment === "left" ? "左寄せ" : "右寄せ"}にしました`);
+      });
     });
-
-    container.appendChild(label);
-  }
 
   return section;
 }
@@ -754,47 +737,49 @@ function appendCollapsible(card: HTMLElement, label: string, content: HTMLElemen
   pluginInfo.appendChild(section);
 }
 
+async function renderPluginCard(
+  container: HTMLElement,
+  config: (typeof PLUGIN_CONFIGS)[number],
+  settings: Record<string, PluginSettings>,
+): Promise<void> {
+  const card = createPluginCard(config, settings[config.id]);
+  container.appendChild(card);
+
+  if (config.id === "input-tools") {
+    appendCollapsible(card, "ボタン設定", await createInputToolsConfig());
+  }
+  if (config.id === "quick-task") {
+    appendCollapsible(card, "タスク設定", await createQuickTaskConfig());
+  }
+  if (config.id === "mention-group") {
+    appendCollapsible(card, "グループ管理", await createMentionGroupConfig());
+  }
+  if (config.id === "hover-reaction") {
+    appendCollapsible(card, "表示設定", await createHoverReactionConfig());
+  }
+  if (config.id === "vip-notify") {
+    appendCollapsible(card, "VIP管理", await createVipNotifyConfig());
+    appendCollapsible(card, "自動既読", await createAutoReadConfig());
+  }
+}
+
 async function render(): Promise<void> {
   const container = document.getElementById("plugin-list");
   if (!container) return;
 
-  // 共通APIトークンセクションを最上部に表示
-  const apiTokenSection = await createApiTokenSection();
-  container.appendChild(apiTokenSection);
-
   const settings = await getPluginSettings();
 
-  for (const config of PLUGIN_CONFIGS) {
-    const card = createPluginCard(config, settings[config.id]);
-    container.appendChild(card);
+  // APIキー不要なプラグインを先に描画
+  for (const config of PLUGIN_CONFIGS.filter((c) => !c.requiresApiKey)) {
+    await renderPluginCard(container, config, settings);
+  }
 
-    if (config.id === "input-tools") {
-      const btnConfig = await createInputToolsConfig();
-      appendCollapsible(card, "ボタン設定", btnConfig);
-    }
+  // APIトークン入力欄
+  container.appendChild(await createApiTokenSection());
 
-    if (config.id === "quick-task") {
-      const taskConfig = await createQuickTaskConfig();
-      appendCollapsible(card, "タスク設定", taskConfig);
-    }
-
-    if (config.id === "mention-group") {
-      const mgConfig = await createMentionGroupConfig();
-      appendCollapsible(card, "グループ管理", mgConfig);
-    }
-
-    if (config.id === "hover-reaction") {
-      const hrConfig = await createHoverReactionConfig();
-      appendCollapsible(card, "表示するリアクション", hrConfig);
-    }
-
-    if (config.id === "vip-notify") {
-      const vipConfig = await createVipNotifyConfig();
-      appendCollapsible(card, "VIP管理", vipConfig);
-
-      const autoReadCfg = await createAutoReadConfig();
-      appendCollapsible(card, "自動既読", autoReadCfg);
-    }
+  // APIキー必須プラグインを最後に描画
+  for (const config of PLUGIN_CONFIGS.filter((c) => c.requiresApiKey)) {
+    await renderPluginCard(container, config, settings);
   }
 }
 

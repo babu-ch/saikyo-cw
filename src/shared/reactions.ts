@@ -15,5 +15,3 @@ export const ALL_REACTIONS: QuickReaction[] = [
   { label: "すごい",     emoticon: "emo_clap.gif",    describe: "拍手する人" },
   { label: "いいね",     emoticon: "emo_yes.gif",     describe: "親指を上げた手" },
 ];
-
-export const DEFAULT_QUICK_REACTIONS = ["了解", "ありがとう", "おめでとう", "わーい"];
