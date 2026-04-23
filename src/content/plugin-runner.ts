@@ -5,6 +5,7 @@ import { muteButtonPlugin } from "./plugins/mute-button";
 import { quickTaskPlugin } from "./plugins/quick-task";
 import { mentionGroupPlugin } from "./plugins/mention-group";
 import { reactionCopyPlugin } from "./plugins/reaction-copy";
+import { hoverReactionPlugin } from "./plugins/hover-reaction";
 import { mentionAutocompletePlugin } from "./plugins/mention-autocomplete";
 import { forceSendButtonPlugin } from "./plugins/force-send-button";
 import { vipNotifyPlugin } from "./plugins/vip-notify";
@@ -15,6 +16,7 @@ const ALL_PLUGINS: CwPlugin[] = [
   quickTaskPlugin,
   mentionGroupPlugin,
   reactionCopyPlugin,
+  hoverReactionPlugin,
   mentionAutocompletePlugin,
   forceSendButtonPlugin,
   vipNotifyPlugin,

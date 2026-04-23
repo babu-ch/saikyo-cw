@@ -681,6 +681,64 @@ async function createAutoReadConfig(): Promise<HTMLElement> {
   return section;
 }
 
+async function createHoverReactionConfig(): Promise<HTMLElement> {
+  const section = document.createElement("div");
+
+  const config = await getPluginConfig<{
+    alignment?: "right" | "left";
+    stopAnimation?: boolean;
+  }>("hover-reaction");
+  const isLeft = (config?.alignment ?? "right") === "left";
+  const stopAnimation = config?.stopAnimation ?? false;
+
+  section.innerHTML = `
+    <div style="margin-top: 8px; display: flex; gap: 16px; align-items: center;">
+      <label style="display: flex; align-items: center; gap: 6px; cursor: pointer;">
+        <input type="radio" name="scw-hr-align" value="left" ${isLeft ? "checked" : ""}>
+        <span>👈 左寄せ</span>
+      </label>
+      <label style="display: flex; align-items: center; gap: 6px; cursor: pointer;">
+        <input type="radio" name="scw-hr-align" value="right" ${!isLeft ? "checked" : ""}>
+        <span>右寄せ 👉</span>
+      </label>
+    </div>
+    <div style="margin-top: 12px; display: flex; align-items: center; justify-content: space-between; gap: 12px;">
+      <span>絵文字のアニメーションを停止<span style="color: #888; font-size: 11px; margin-left: 6px;">（静止画で表示）</span></span>
+      <label class="toggle">
+        <input type="checkbox" id="scw-hr-stop-anim" ${stopAnimation ? "checked" : ""}>
+        <span class="toggle-slider"></span>
+      </label>
+    </div>
+  `;
+
+  section
+    .querySelectorAll<HTMLInputElement>('input[name="scw-hr-align"]')
+    .forEach((input) => {
+      input.addEventListener("change", async () => {
+        if (!input.checked) return;
+        const alignment = input.value as "right" | "left";
+        const existing =
+          (await getPluginConfig<Record<string, unknown>>("hover-reaction")) ?? {};
+        await setPluginConfig("hover-reaction", { ...existing, alignment });
+        showStatus(`表示位置を${alignment === "left" ? "左寄せ" : "右寄せ"}にしました`);
+      });
+    });
+
+  section
+    .querySelector<HTMLInputElement>("#scw-hr-stop-anim")!
+    .addEventListener("change", async (e) => {
+      const stop = (e.target as HTMLInputElement).checked;
+      const existing =
+        (await getPluginConfig<Record<string, unknown>>("hover-reaction")) ?? {};
+      await setPluginConfig("hover-reaction", { ...existing, stopAnimation: stop });
+      showStatus(
+        stop ? "アニメーションを停止します" : "アニメーションを有効にします",
+      );
+    });
+
+  return section;
+}
+
 function appendCollapsible(card: HTMLElement, label: string, content: HTMLElement): void {
   const pluginInfo = card.querySelector(".plugin-info");
   if (!pluginInfo) return;
@@ -702,42 +760,49 @@ function appendCollapsible(card: HTMLElement, label: string, content: HTMLElemen
   pluginInfo.appendChild(section);
 }
 
+async function renderPluginCard(
+  container: HTMLElement,
+  config: (typeof PLUGIN_CONFIGS)[number],
+  settings: Record<string, PluginSettings>,
+): Promise<void> {
+  const card = createPluginCard(config, settings[config.id]);
+  container.appendChild(card);
+
+  if (config.id === "input-tools") {
+    appendCollapsible(card, "ボタン設定", await createInputToolsConfig());
+  }
+  if (config.id === "quick-task") {
+    appendCollapsible(card, "タスク設定", await createQuickTaskConfig());
+  }
+  if (config.id === "mention-group") {
+    appendCollapsible(card, "グループ管理", await createMentionGroupConfig());
+  }
+  if (config.id === "hover-reaction") {
+    appendCollapsible(card, "表示設定", await createHoverReactionConfig());
+  }
+  if (config.id === "vip-notify") {
+    appendCollapsible(card, "VIP管理", await createVipNotifyConfig());
+    appendCollapsible(card, "自動既読", await createAutoReadConfig());
+  }
+}
+
 async function render(): Promise<void> {
   const container = document.getElementById("plugin-list");
   if (!container) return;
 
-  // 共通APIトークンセクションを最上部に表示
-  const apiTokenSection = await createApiTokenSection();
-  container.appendChild(apiTokenSection);
-
   const settings = await getPluginSettings();
 
-  for (const config of PLUGIN_CONFIGS) {
-    const card = createPluginCard(config, settings[config.id]);
-    container.appendChild(card);
+  // APIキー不要なプラグインを先に描画
+  for (const config of PLUGIN_CONFIGS.filter((c) => !c.requiresApiKey)) {
+    await renderPluginCard(container, config, settings);
+  }
 
-    if (config.id === "input-tools") {
-      const btnConfig = await createInputToolsConfig();
-      appendCollapsible(card, "ボタン設定", btnConfig);
-    }
+  // APIトークン入力欄
+  container.appendChild(await createApiTokenSection());
 
-    if (config.id === "quick-task") {
-      const taskConfig = await createQuickTaskConfig();
-      appendCollapsible(card, "タスク設定", taskConfig);
-    }
-
-    if (config.id === "mention-group") {
-      const mgConfig = await createMentionGroupConfig();
-      appendCollapsible(card, "グループ管理", mgConfig);
-    }
-
-    if (config.id === "vip-notify") {
-      const vipConfig = await createVipNotifyConfig();
-      appendCollapsible(card, "VIP管理", vipConfig);
-
-      const autoReadCfg = await createAutoReadConfig();
-      appendCollapsible(card, "自動既読", autoReadCfg);
-    }
+  // APIキー必須プラグインを最後に描画
+  for (const config of PLUGIN_CONFIGS.filter((c) => c.requiresApiKey)) {
+    await renderPluginCard(container, config, settings);
   }
 }
 
