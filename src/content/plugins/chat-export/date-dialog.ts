@@ -35,14 +35,19 @@ export function showExportDialog(): Promise<ExportOptions | null> {
 
     const desc = document.createElement("div");
     desc.className = "scw-export-dialog__desc";
-    desc.textContent =
-      "現在のチャットを最古までさかのぼってCSV出力します。開始時にいったん最新メッセージまで移動してから過去へさかのぼります。大きいチャットほど時間がかかりますが、途中で中断してもそこまでのCSVが保存されます。";
+    desc.textContent = [
+      "現在のチャットを最古までさかのぼってCSV出力します。",
+      "開始時にいったん最新メッセージまで移動してから過去へさかのぼります。",
+      "大きいチャットほど時間がかかりますが、途中で中断してもそこまでのCSVが保存されます。",
+    ].join("\n");
     card.appendChild(desc);
 
     const notice = document.createElement("div");
     notice.className = "scw-export-dialog__notice";
-    notice.textContent =
-      "⚠ 処理中はこのタブをアクティブに保ってください。別タブに切り替えると処理が大きく遅くなったり、途中で終わってしまうことがあります。";
+    notice.textContent = [
+      "⚠ 処理中はこのタブをアクティブに保ってください。",
+      "別タブに切り替えると処理が大きく遅くなったり、途中で終わってしまうことがあります。",
+    ].join("\n");
     card.appendChild(notice);
 
     const rangeToggle = document.createElement("label");
