@@ -52,4 +52,10 @@ export const PLUGIN_CONFIGS: PluginConfig[] = [
     defaultEnabled: false,
     requiresApiKey: true,
   },
+  {
+    id: "chat-export",
+    name: "チャットCSV出力",
+    description:
+      "現在開いているチャットのヘッダーに「CSV出力」ボタンを追加。クリックするとダイアログが開き、そのままダウンロードするか期間を指定してダウンロードするか選べる（DOM方式、APIキー不要）。",
+  },
 ];

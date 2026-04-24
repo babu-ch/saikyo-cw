@@ -9,6 +9,7 @@ import { hoverReactionPlugin } from "./plugins/hover-reaction";
 import { mentionAutocompletePlugin } from "./plugins/mention-autocomplete";
 import { forceSendButtonPlugin } from "./plugins/force-send-button";
 import { vipNotifyPlugin } from "./plugins/vip-notify";
+import { chatExportPlugin } from "./plugins/chat-export";
 
 const ALL_PLUGINS: CwPlugin[] = [
   inputToolsPlugin,
@@ -20,6 +21,7 @@ const ALL_PLUGINS: CwPlugin[] = [
   mentionAutocompletePlugin,
   forceSendButtonPlugin,
   vipNotifyPlugin,
+  chatExportPlugin,
 ];
 
 const activePlugins = new Map<string, CwPlugin>();
