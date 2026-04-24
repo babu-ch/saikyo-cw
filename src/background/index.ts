@@ -4,6 +4,67 @@ chrome.runtime.onInstalled.addListener(() => {
   console.log("saikyo-cw installed");
 });
 
+// ===== chat-export: Chatwork宛XHRの通信アクティビティ観測 =====
+// chat-exportプラグインが「過去ログの読み込みがまだ進行中か」を判定するために使う。
+// 直近N秒の開始/完了数で rate-based に判定し、長時間接続(WebSocket等)に惑わされないようにする。
+
+const CW_EXPORT_WINDOW_MS = 30 * 1000;
+const cwExportNetState = new Map<number, { starts: number[]; ends: number[] }>();
+
+function cwExportGetState(tabId: number): { starts: number[]; ends: number[] } {
+  let s = cwExportNetState.get(tabId);
+  if (!s) {
+    s = { starts: [], ends: [] };
+    cwExportNetState.set(tabId, s);
+  }
+  return s;
+}
+
+function cwExportPrune(arr: number[]): void {
+  const cutoff = Date.now() - CW_EXPORT_WINDOW_MS;
+  while (arr.length && arr[0]! < cutoff) arr.shift();
+}
+
+function cwExportOnStart(details: chrome.webRequest.WebRequestDetails): void {
+  if (details.tabId < 0) return;
+  const s = cwExportGetState(details.tabId);
+  s.starts.push(Date.now());
+  cwExportPrune(s.starts);
+}
+
+function cwExportOnEnd(details: chrome.webRequest.WebRequestDetails): void {
+  if (details.tabId < 0) return;
+  const s = cwExportGetState(details.tabId);
+  s.ends.push(Date.now());
+  cwExportPrune(s.ends);
+}
+
+const CW_EXPORT_FILTER: chrome.webRequest.RequestFilter = {
+  urls: [
+    "https://www.chatwork.com/*",
+    "https://*.chatwork.com/*",
+  ],
+  types: ["xmlhttprequest"],
+};
+
+chrome.webRequest.onBeforeRequest.addListener(cwExportOnStart, CW_EXPORT_FILTER);
+chrome.webRequest.onCompleted.addListener(cwExportOnEnd, CW_EXPORT_FILTER);
+chrome.webRequest.onErrorOccurred.addListener(cwExportOnEnd, CW_EXPORT_FILTER);
+
+function cwExportCountWithin(arr: number[], ms: number): number {
+  const cutoff = Date.now() - ms;
+  let n = 0;
+  for (let i = arr.length - 1; i >= 0; i--) {
+    if (arr[i]! >= cutoff) n++;
+    else break;
+  }
+  return n;
+}
+
+chrome.tabs.onRemoved.addListener((tabId) => {
+  cwExportNetState.delete(tabId);
+});
+
 // ===== 自動既読 =====
 
 const PLUGIN_PREFIX = "plugin_";
@@ -218,6 +279,24 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
       .then((result) => sendResponse({ ok: true, ...result }))
       .catch((e) => sendResponse({ ok: false, error: e.message }));
     return true;
+  }
+
+  if (message.type === "cwExport:getNetState") {
+    const tabId = sender.tab?.id;
+    if (tabId == null) {
+      sendResponse({ ok: false });
+      return;
+    }
+    const s = cwExportGetState(tabId);
+    sendResponse({
+      ok: true,
+      startsIn3s: cwExportCountWithin(s.starts, 3000),
+      startsIn1s: cwExportCountWithin(s.starts, 1000),
+      endsIn3s: cwExportCountWithin(s.ends, 3000),
+      msSinceLastStart: s.starts.length ? Date.now() - s.starts[s.starts.length - 1]! : -1,
+      msSinceLastEnd: s.ends.length ? Date.now() - s.ends[s.ends.length - 1]! : -1,
+    });
+    return;
   }
 
   if (message.type === "fetchMessages") {
