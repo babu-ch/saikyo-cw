@@ -47,9 +47,18 @@ const CSS = `
   color: #333;
   padding: 22px 24px 18px;
   border-radius: 10px;
-  min-width: 360px;
+  width: 460px;
   max-width: 92vw;
+  box-sizing: border-box;
   box-shadow: 0 10px 40px rgba(0, 0, 0, 0.3);
+}
+.scw-export-dialog__card * {
+  box-sizing: border-box;
+}
+.scw-export-dialog__desc,
+.scw-export-dialog__notice {
+  word-break: break-word;
+  overflow-wrap: anywhere;
 }
 .scw-export-dialog__title {
   font-size: 16px;
