@@ -10,6 +10,7 @@ import { mentionAutocompletePlugin } from "./plugins/mention-autocomplete";
 import { forceSendButtonPlugin } from "./plugins/force-send-button";
 import { vipNotifyPlugin } from "./plugins/vip-notify";
 import { chatExportPlugin } from "./plugins/chat-export";
+import { replyThreadPlugin } from "./plugins/reply-thread";
 
 const ALL_PLUGINS: CwPlugin[] = [
   inputToolsPlugin,
@@ -22,6 +23,7 @@ const ALL_PLUGINS: CwPlugin[] = [
   forceSendButtonPlugin,
   vipNotifyPlugin,
   chatExportPlugin,
+  replyThreadPlugin,
 ];
 
 const activePlugins = new Map<string, CwPlugin>();
