@@ -681,6 +681,62 @@ async function createAutoReadConfig(): Promise<HTMLElement> {
   return section;
 }
 
+async function createReplyThreadConfig(): Promise<HTMLElement> {
+  const section = document.createElement("div");
+
+  const config = await getPluginConfig<{
+    alignment?: "left" | "right";
+    compact?: boolean;
+  }>("reply-thread");
+  const isLeft = (config?.alignment ?? "right") === "left";
+  const compact = config?.compact ?? false;
+
+  section.innerHTML = `
+    <div style="margin-top: 8px; display: flex; gap: 16px; align-items: center;">
+      <label style="display: flex; align-items: center; gap: 6px; cursor: pointer;">
+        <input type="radio" name="scw-rt-align" value="left" ${isLeft ? "checked" : ""}>
+        <span>👈 左寄せ</span>
+      </label>
+      <label style="display: flex; align-items: center; gap: 6px; cursor: pointer;">
+        <input type="radio" name="scw-rt-align" value="right" ${!isLeft ? "checked" : ""}>
+        <span>右寄せ 👉</span>
+      </label>
+    </div>
+    <div style="margin-top: 12px; display: flex; align-items: center; justify-content: space-between; gap: 12px;">
+      <span>コンパクト表示<span style="color: #888; font-size: 11px; margin-left: 6px;">（「💬 N」だけ表示）</span></span>
+      <label class="toggle">
+        <input type="checkbox" id="scw-rt-compact" ${compact ? "checked" : ""}>
+        <span class="toggle-slider"></span>
+      </label>
+    </div>
+  `;
+
+  section
+    .querySelectorAll<HTMLInputElement>('input[name="scw-rt-align"]')
+    .forEach((input) => {
+      input.addEventListener("change", async () => {
+        if (!input.checked) return;
+        const alignment = input.value as "right" | "left";
+        const existing =
+          (await getPluginConfig<Record<string, unknown>>("reply-thread")) ?? {};
+        await setPluginConfig("reply-thread", { ...existing, alignment });
+        showStatus(`表示位置を${alignment === "left" ? "左寄せ" : "右寄せ"}にしました`);
+      });
+    });
+
+  section
+    .querySelector<HTMLInputElement>("#scw-rt-compact")!
+    .addEventListener("change", async (e) => {
+      const compact = (e.target as HTMLInputElement).checked;
+      const existing =
+        (await getPluginConfig<Record<string, unknown>>("reply-thread")) ?? {};
+      await setPluginConfig("reply-thread", { ...existing, compact });
+      showStatus(compact ? "コンパクト表示にしました" : "通常表示にしました");
+    });
+
+  return section;
+}
+
 async function createHoverReactionConfig(): Promise<HTMLElement> {
   const section = document.createElement("div");
 
@@ -783,6 +839,9 @@ async function renderPluginCard(
   if (config.id === "vip-notify") {
     appendCollapsible(card, "VIP管理", await createVipNotifyConfig());
     appendCollapsible(card, "自動既読", await createAutoReadConfig());
+  }
+  if (config.id === "reply-thread") {
+    appendCollapsible(card, "表示設定", await createReplyThreadConfig());
   }
 }
 
