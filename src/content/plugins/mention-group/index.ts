@@ -10,6 +10,7 @@ export const mentionGroupPlugin: CwPlugin = {
     id: "mention-group",
     name: "Mention Group",
     description: "グループメンションをワンクリックで挿入",
+    defaultEnabled: true,
   },
   init() {
     // ツールバーにクイックメンションボタンを注入

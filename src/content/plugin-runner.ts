@@ -32,7 +32,7 @@ export async function startPlugins(): Promise<void> {
   const settings = await getPluginSettings();
 
   for (const plugin of ALL_PLUGINS) {
-    const enabled = settings[plugin.config.id]?.enabled ?? (plugin.config.defaultEnabled ?? true);
+    const enabled = settings[plugin.config.id]?.enabled ?? plugin.config.defaultEnabled;
     if (enabled) {
       plugin.init();
       activePlugins.set(plugin.config.id, plugin);
@@ -47,7 +47,7 @@ export async function startPlugins(): Promise<void> {
       if (!change) continue;
 
       const wasEnabled = activePlugins.has(plugin.config.id);
-      const nowEnabled = change.newValue?.enabled ?? (plugin.config.defaultEnabled ?? true);
+      const nowEnabled = change.newValue?.enabled ?? plugin.config.defaultEnabled;
 
       if (wasEnabled && !nowEnabled) {
         plugin.destroy();

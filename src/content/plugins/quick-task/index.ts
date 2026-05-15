@@ -10,6 +10,7 @@ export const quickTaskPlugin: CwPlugin = {
     id: "quick-task",
     name: "Quick Task",
     description: "メッセージにmy taskボタンを追加",
+    defaultEnabled: true,
   },
   init() {
     observer = observeDOM(CW.MESSAGE_ACTION_NAV, (el) => {

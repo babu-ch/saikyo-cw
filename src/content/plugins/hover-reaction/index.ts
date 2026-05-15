@@ -188,6 +188,7 @@ export const hoverReactionPlugin: CwPlugin = {
     id: PLUGIN_ID,
     name: "ホバーリアクション",
     description: "ホバーメニューの下にリアクション絵文字をワンクリック送信できるボタンを表示",
+    defaultEnabled: true,
   },
   init() {
     enabled = true;

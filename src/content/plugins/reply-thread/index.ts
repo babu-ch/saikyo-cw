@@ -461,6 +461,7 @@ export const replyThreadPlugin: CwPlugin = {
     id: PLUGIN_ID,
     name: "返信スレッド",
     description: "",
+    defaultEnabled: false,
   },
   init() {
     enabled = true;
