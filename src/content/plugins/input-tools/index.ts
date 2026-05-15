@@ -9,6 +9,7 @@ export const inputToolsPlugin: CwPlugin = {
     id: "input-tools",
     name: "Input Tools",
     description: "コードブロック・絵文字・装飾タグの挿入、TO全選択",
+    defaultEnabled: true,
   },
   init() {
     // #_emoticon が現れたらその横にアイコンを注入

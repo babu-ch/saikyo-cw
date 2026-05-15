@@ -133,6 +133,7 @@ export const muteButtonPlugin: CwPlugin = {
     id: "mute-button",
     name: "Mute Button",
     description: "ワンクリックでチャットをミュート",
+    defaultEnabled: true,
   },
   init() {
     injectStyles();

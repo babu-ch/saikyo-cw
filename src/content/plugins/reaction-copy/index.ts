@@ -171,6 +171,7 @@ export const reactionCopyPlugin: CwPlugin = {
     id: "reaction-copy",
     name: "Reaction Copy",
     description: "リアクションしたユーザー一覧をコピー（TO付きも対応）",
+    defaultEnabled: true,
   },
   init() {
     injectStyles();

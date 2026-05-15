@@ -35,7 +35,7 @@ function createPluginCard(
   const card = document.createElement("div");
   card.className = "plugin-card";
 
-  const enabled = settings?.enabled ?? (config.defaultEnabled ?? true);
+  const enabled = settings?.enabled ?? config.defaultEnabled;
 
   card.innerHTML = `
     <div class="plugin-info">

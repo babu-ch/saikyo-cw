@@ -208,6 +208,7 @@ export const chatExportPlugin: CwPlugin = {
     name: "チャットCSV出力",
     description:
       "現在開いているチャットを最古まで遡り、CSVとしてダウンロード（必要なら期間指定も可）",
+    defaultEnabled: true,
   },
   init() {
     injectStyles();
