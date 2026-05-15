@@ -114,11 +114,12 @@ async function createInputToolsConfig(): Promise<HTMLElement> {
 async function createQuickTaskConfig(): Promise<HTMLElement> {
   const section = document.createElement("div");
 
-  const config = await getPluginConfig<{ mode?: string; myChatId?: string }>(
+  const config = await getPluginConfig<{ mode?: string; myChatId?: string; deadlineDays?: number }>(
     "quick-task",
   );
   const currentMode = config?.mode ?? "mychat-url";
   const currentChatId = config?.myChatId ?? "";
+  const currentDeadline = config?.deadlineDays ?? 3;
 
   const modes = [
     { value: "mychat-url", label: "マイチャットにURLのみ" },
@@ -140,6 +141,14 @@ async function createQuickTaskConfig(): Promise<HTMLElement> {
              placeholder="例: 12345678"
              value="${escapeHtml(currentChatId)}">
     </div>
+    <div style="margin-top: 12px;">
+      <label class="api-key-label">期限デフォルト（今日からの日数）</label>
+      <input type="number" id="scw-task-deadline" class="api-key-input"
+             min="-1" step="1"
+             placeholder="3"
+             value="${escapeHtml(String(currentDeadline))}">
+      <div style="font-size: 11px; color: #888; margin-top: 4px;">0=今日、3=3日後、-1で期限なし</div>
+    </div>
   `;
 
   section.querySelector("#scw-task-mode")!.addEventListener("change", async (e) => {
@@ -157,6 +166,20 @@ async function createQuickTaskConfig(): Promise<HTMLElement> {
       const existing = (await getPluginConfig<Record<string, unknown>>("quick-task")) ?? {};
       await setPluginConfig("quick-task", { ...existing, myChatId: chatIdInput.value });
       showStatus("マイチャットIDを保存しました");
+    }, 500);
+  });
+
+  const deadlineInput = section.querySelector<HTMLInputElement>("#scw-task-deadline")!;
+  let deadlineDebounce: ReturnType<typeof setTimeout>;
+  deadlineInput.addEventListener("input", () => {
+    clearTimeout(deadlineDebounce);
+    deadlineDebounce = setTimeout(async () => {
+      const raw = deadlineInput.value.trim();
+      const parsed = raw === "" ? 3 : Number(raw);
+      if (!Number.isFinite(parsed) || !Number.isInteger(parsed)) return;
+      const existing = (await getPluginConfig<Record<string, unknown>>("quick-task")) ?? {};
+      await setPluginConfig("quick-task", { ...existing, deadlineDays: parsed });
+      showStatus("期限デフォルトを保存しました");
     }, 500);
   });
 

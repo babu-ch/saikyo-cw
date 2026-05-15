@@ -15,7 +15,11 @@ export type TaskMode =
 interface QuickTaskConfig {
   myChatId?: string;
   mode?: TaskMode;
+  // 期限のデフォルト日数（今日からのオフセット）。-1でなし
+  deadlineDays?: number;
 }
+
+const DEFAULT_DEADLINE_DAYS = 3;
 
 async function getConfig(): Promise<QuickTaskConfig> {
   return (await getPluginConfig<QuickTaskConfig>(PLUGIN_ID)) ?? {};
@@ -90,7 +94,78 @@ async function assignToSelf(): Promise<void> {
   await sleep(200);
 }
 
-async function executeTask(message: Element, mode: TaskMode): Promise<void> {
+function getPickerMonth(picker: Element): { y: number; m: number } | null {
+  // <p>2026年 5月</p> を月送りヘッダから読む
+  const ps = picker.querySelectorAll("p");
+  for (const p of Array.from(ps)) {
+    const match = p.textContent?.match(/(\d+)年\s*(\d+)月/);
+    if (match) return { y: Number(match[1]), m: Number(match[2]) };
+  }
+  return null;
+}
+
+async function setDeadline(days: number): Promise<void> {
+  if (days < 0) return; // 設定なし
+
+  // 期限ブロックの日付テキスト（「5月15日」形式）をクリックしてカレンダーを開く
+  const taskArea = document.querySelector("#_taskInputActive");
+  if (!taskArea) return;
+  const dateBtn = Array.from(taskArea.querySelectorAll("p")).find((p) =>
+    /^\d+月\d+日$/.test((p.textContent ?? "").trim()),
+  );
+  if (!dateBtn) {
+    console.warn("[saikyo-cw][quick-task] 期限の日付ボタンが見つかりません");
+    return;
+  }
+  (dateBtn as HTMLElement).click();
+  await sleep(300);
+
+  const picker = document.querySelector('[data-testid="date-picker"]');
+  if (!picker) {
+    console.warn("[saikyo-cw][quick-task] date-pickerが開きません");
+    return;
+  }
+
+  const target = new Date();
+  target.setDate(target.getDate() + days);
+  const ty = target.getFullYear();
+  const tm = target.getMonth() + 1;
+  const td = target.getDate();
+  const targetDateAttr = `${ty}-${tm}-${td}`; // CWは0埋めなし形式
+
+  // 表示中の月をターゲット月まで進める（datetime属性は前後月セルにも入っているのでクリックすると月をまたぐ可能性があるため、確実にターゲット月に合わせる）
+  for (let i = 0; i < 12; i++) {
+    const cur = getPickerMonth(picker);
+    if (!cur) break;
+    if (cur.y === ty && cur.m === tm) break;
+    const nextBtn = Array.from(picker.querySelectorAll("button")).find((b) =>
+      b.querySelector('use[href="#icon_triangleRight"]'),
+    );
+    if (!nextBtn) break;
+    (nextBtn as HTMLElement).click();
+    await sleep(150);
+  }
+
+  // ターゲット日付セルをクリック
+  const cell = picker.querySelector<HTMLElement>(
+    `time[datetime="${targetDateAttr}"]`,
+  );
+  if (cell) {
+    cell.click();
+    await sleep(150);
+  } else {
+    console.warn("[saikyo-cw][quick-task] 対象日のセルが見つかりません:", targetDateAttr);
+  }
+
+  // 「閉じる」ボタンを押してピッカーを閉じる
+  const closeBtn = Array.from(picker.querySelectorAll("button")).find(
+    (b) => b.textContent?.trim() === "閉じる",
+  );
+  (closeBtn as HTMLElement | undefined)?.click();
+  await sleep(150);
+}
+
+async function executeTask(message: Element, mode: TaskMode, deadlineDays: number): Promise<void> {
   const url = getMessageUrl(message);
   const includeMessage = mode === "mychat-message" || mode === "here-message";
   const isHere = mode === "here-url" || mode === "here-message";
@@ -126,6 +201,9 @@ async function executeTask(message: Element, mode: TaskMode): Promise<void> {
     await assignToSelf();
   }
 
+  // 期限を設定
+  await setDeadline(deadlineDays);
+
   // 追加ボタン
   const addBtn = document.querySelector<HTMLElement>(
     'button[data-testid="room-sub-column_room-task_add-button"]',
@@ -158,9 +236,10 @@ export function injectMyTaskButton(actionNav: Element): void {
 
     const config = await getConfig();
     const mode = config.mode ?? "mychat-url";
+    const deadlineDays = config.deadlineDays ?? DEFAULT_DEADLINE_DAYS;
 
     try {
-      await executeTask(message, mode);
+      await executeTask(message, mode, deadlineDays);
     } catch (err) {
       console.error("[saikyo-cw] Quick Task error:", err);
     }
