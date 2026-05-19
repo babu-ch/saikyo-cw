@@ -55,6 +55,60 @@ function getMessageText(message: Element): string {
   return Array.from(spans).map((e) => (e as HTMLElement).innerText).join("\n");
 }
 
+// CW純正の「コピー」機能を経由して本文を取得する。
+// innerTextだとメンション・引用・絵文字などの記法が崩れるため、CW側の「メッセージ内容」ダイアログのtextareaから取る。
+async function getMessageTextViaCopy(message: Element): Promise<string | null> {
+  try {
+    let nav = message.querySelector(".messageActionNav");
+    if (!nav) {
+      message.dispatchEvent(
+        new MouseEvent("mouseover", { bubbles: true, cancelable: true }),
+      );
+      await sleep(200);
+      nav = message.querySelector(".messageActionNav");
+    }
+    if (!nav) return null;
+
+    const moreBtn = nav.querySelector<HTMLElement>(".moreActionButton");
+    if (!moreBtn) return null;
+    moreBtn.click();
+    await sleep(200);
+
+    // dropdown内の「コピー」ボタン → クリックすると「メッセージ内容」ダイアログが開く
+    const copyUses = document.querySelectorAll('use[href="#icon_copy"]');
+    const copyBtn = (
+      Array.from(copyUses).pop() as Element | undefined
+    )?.closest("button") as HTMLElement | null;
+    if (!copyBtn) return null;
+    copyBtn.click();
+    await sleep(300);
+
+    // 「メッセージ内容」ダイアログのtextareaから本文を取得
+    const dialogs = Array.from(
+      document.querySelectorAll<HTMLElement>('[role="presentation"]'),
+    );
+    let body: string | null = null;
+    let closeBtn: HTMLElement | null = null;
+    for (const dialog of dialogs.reverse()) {
+      const h1 = dialog.querySelector("h1");
+      if (h1?.textContent?.trim() !== "メッセージ内容") continue;
+      const ta = dialog.querySelector<HTMLTextAreaElement>("textarea");
+      if (!ta) continue;
+      body = ta.value;
+      closeBtn = dialog.querySelector<HTMLElement>('button[aria-label="閉じる"]');
+      break;
+    }
+
+    closeBtn?.click();
+    await sleep(100);
+
+    return body && body.length > 0 ? body : null;
+  } catch (e) {
+    console.warn("[saikyo-cw][quick-task] copy本文取得に失敗、innerTextへフォールバック:", e);
+    return null;
+  }
+}
+
 async function setTaskInput(input: HTMLTextAreaElement, value: string): Promise<void> {
   const nativeSetter = Object.getOwnPropertyDescriptor(
     HTMLTextAreaElement.prototype,
@@ -170,7 +224,12 @@ async function executeTask(message: Element, mode: TaskMode, deadlineDays: numbe
   const includeMessage = mode === "mychat-message" || mode === "here-message";
   const isHere = mode === "here-url" || mode === "here-message";
 
-  const content = includeMessage ? `${url}\n${getMessageText(message)}` : url;
+  let content = url;
+  if (includeMessage) {
+    const copied = await getMessageTextViaCopy(message);
+    const body = copied ?? getMessageText(message);
+    content = `${url}\n${body}`;
+  }
 
   if (isHere) {
     // 現チャットのridに遷移（実質リロードなし）
