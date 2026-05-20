@@ -55,9 +55,10 @@ function getMessageText(message: Element): string {
   return Array.from(spans).map((e) => (e as HTMLElement).innerText).join("\n");
 }
 
-// CW純正の「コピー」機能を経由して本文を取得する。
-// innerTextだとメンション・引用・絵文字などの記法が崩れるため、CW側の「メッセージ内容」ダイアログのtextareaから取る。
-async function getMessageTextViaCopy(message: Element): Promise<string | null> {
+// CW純正の「引用」機能を経由して本文を取得する。
+// 引用ボタンを押すと #_chatText に `[引用 aid=xxx time=yyy]本文[/引用]` 形式の記法が挿入されるので、
+// 差分を取り出して下書きは元に戻す。引用記法ならタスク欄でも送信者アイコン付きで表示される。
+async function getMessageTextViaQuote(message: Element): Promise<string | null> {
   try {
     let nav = message.querySelector(".messageActionNav");
     if (!nav) {
@@ -69,42 +70,28 @@ async function getMessageTextViaCopy(message: Element): Promise<string | null> {
     }
     if (!nav) return null;
 
-    const moreBtn = nav.querySelector<HTMLElement>(".moreActionButton");
-    if (!moreBtn) return null;
-    moreBtn.click();
-    await sleep(200);
-
-    // dropdown内の「コピー」ボタン → クリックすると「メッセージ内容」ダイアログが開く
-    const copyUses = document.querySelectorAll('use[href="#icon_copy"]');
-    const copyBtn = (
-      Array.from(copyUses).pop() as Element | undefined
+    const quoteBtn = (
+      nav.querySelector('use[href="#icon_quote"]') as Element | null
     )?.closest("button") as HTMLElement | null;
-    if (!copyBtn) return null;
-    copyBtn.click();
+    if (!quoteBtn) return null;
+
+    const input = document.querySelector<HTMLTextAreaElement>("#_chatText");
+    if (!input) return null;
+
+    const before = input.value;
+    quoteBtn.click();
     await sleep(300);
 
-    // 「メッセージ内容」ダイアログのtextareaから本文を取得
-    const dialogs = Array.from(
-      document.querySelectorAll<HTMLElement>('[role="presentation"]'),
-    );
-    let body: string | null = null;
-    let closeBtn: HTMLElement | null = null;
-    for (const dialog of dialogs.reverse()) {
-      const h1 = dialog.querySelector("h1");
-      if (h1?.textContent?.trim() !== "メッセージ内容") continue;
-      const ta = dialog.querySelector<HTMLTextAreaElement>("textarea");
-      if (!ta) continue;
-      body = ta.value;
-      closeBtn = dialog.querySelector<HTMLElement>('button[aria-label="閉じる"]');
-      break;
-    }
+    const after = input.value;
+    let quoted = after.startsWith(before) ? after.slice(before.length) : after;
+    quoted = quoted.replace(/^\s+|\s+$/g, "");
 
-    closeBtn?.click();
-    await sleep(100);
+    // 下書きを元に戻す（Reactに変更通知）
+    setReactInputValue(input, before);
 
-    return body && body.length > 0 ? body : null;
+    return quoted || null;
   } catch (e) {
-    console.warn("[saikyo-cw][quick-task] copy本文取得に失敗、innerTextへフォールバック:", e);
+    console.warn("[saikyo-cw][quick-task] quote本文取得に失敗、innerTextへフォールバック:", e);
     return null;
   }
 }
@@ -226,8 +213,8 @@ async function executeTask(message: Element, mode: TaskMode, deadlineDays: numbe
 
   let content = url;
   if (includeMessage) {
-    const copied = await getMessageTextViaCopy(message);
-    const body = copied ?? getMessageText(message);
+    const quoted = await getMessageTextViaQuote(message);
+    const body = quoted ?? getMessageText(message);
     content = `${url}\n${body}`;
   }
 
