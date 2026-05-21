@@ -73,4 +73,12 @@ export const PLUGIN_CONFIGS: PluginConfig[] = [
       "返信が付いている元メッセージに「💬返信あり N件」バッジを表示し、クリックで送信者と冒頭プレビューを一覧表示。クリックで該当返信へジャンプ。※現在画面に読み込まれている範囲のメッセージのみが対象（古い未読み込み返信は検知できません）。",
     defaultEnabled: false,
   },
+  {
+    id: "quick-delete",
+    name: "クイック削除",
+    description:
+      "自分のメッセージにhoverすると右上に×ボタンが表示され、ワンクリック（確認ダイアログあり）で削除。共通APIキー必須。",
+    defaultEnabled: false,
+    requiresApiKey: true,
+  },
 ];

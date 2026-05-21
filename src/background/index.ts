@@ -299,6 +299,34 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
     return;
   }
 
+  if (message.type === "deleteMessage") {
+    if (!isValidRoomId(message.roomId)) {
+      sendResponse({ ok: false, error: "Invalid roomId" });
+      return;
+    }
+    if (!/^\d+$/.test(String(message.messageId))) {
+      sendResponse({ ok: false, error: "Invalid messageId" });
+      return;
+    }
+    fetch(
+      `https://api.chatwork.com/v2/rooms/${message.roomId}/messages/${message.messageId}`,
+      {
+        method: "DELETE",
+        headers: { "X-ChatWorkToken": token },
+      },
+    )
+      .then(async (res) => {
+        if (!res.ok) {
+          const text = await res.text().catch(() => "");
+          throw new Error(`API error: ${res.status} ${text}`);
+        }
+        return res.json().catch(() => ({}));
+      })
+      .then((result) => sendResponse({ ok: true, result }))
+      .catch((e) => sendResponse({ ok: false, error: e.message }));
+    return true;
+  }
+
   if (message.type === "fetchMessage") {
     if (!isValidRoomId(message.roomId)) {
       sendResponse({ ok: false });
