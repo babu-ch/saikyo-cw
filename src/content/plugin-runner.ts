@@ -11,6 +11,7 @@ import { forceSendButtonPlugin } from "./plugins/force-send-button";
 import { vipNotifyPlugin } from "./plugins/vip-notify";
 import { chatExportPlugin } from "./plugins/chat-export";
 import { replyThreadPlugin } from "./plugins/reply-thread";
+import { quickDeletePlugin } from "./plugins/quick-delete";
 
 const ALL_PLUGINS: CwPlugin[] = [
   inputToolsPlugin,
@@ -24,6 +25,7 @@ const ALL_PLUGINS: CwPlugin[] = [
   vipNotifyPlugin,
   chatExportPlugin,
   replyThreadPlugin,
+  quickDeletePlugin,
 ];
 
 const activePlugins = new Map<string, CwPlugin>();

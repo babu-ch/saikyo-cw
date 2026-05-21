@@ -186,6 +186,48 @@ async function createQuickTaskConfig(): Promise<HTMLElement> {
   return section;
 }
 
+// ===== クイック削除設定 =====
+async function createQuickDeleteConfig(): Promise<HTMLElement> {
+  const section = document.createElement("div");
+
+  const config = await getPluginConfig<{ position?: "left" | "right" }>("quick-delete");
+  const currentPosition = config?.position === "right" ? "right" : "left";
+
+  const options = [
+    { value: "left", label: "時刻の左側" },
+    { value: "right", label: "時刻の右側" },
+  ];
+
+  section.innerHTML = `
+    <div style="margin-top: 8px;">
+      <label class="api-key-label">×ボタンの位置</label>
+      <div style="display: flex; gap: 16px; margin-top: 6px;">
+        ${options
+          .map(
+            (o) => `
+          <label style="display: inline-flex; align-items: center; gap: 4px; font-size: 13px; cursor: pointer;">
+            <input type="radio" name="scw-qd-position" value="${escapeHtml(o.value)}" ${o.value === currentPosition ? "checked" : ""}>
+            ${escapeHtml(o.label)}
+          </label>`,
+          )
+          .join("")}
+      </div>
+      <div style="font-size: 11px; color: #888; margin-top: 4px;">設定変更は新規メッセージから反映されます</div>
+    </div>
+  `;
+
+  section.querySelectorAll<HTMLInputElement>('input[name="scw-qd-position"]').forEach((radio) => {
+    radio.addEventListener("change", async () => {
+      if (!radio.checked) return;
+      const existing = (await getPluginConfig<Record<string, unknown>>("quick-delete")) ?? {};
+      await setPluginConfig("quick-delete", { ...existing, position: radio.value });
+      showStatus("×ボタンの位置を保存しました");
+    });
+  });
+
+  return section;
+}
+
 // ===== メンショングループ設定 =====
 const MG_STORAGE_KEY = "quickMentionGroups";
 
@@ -865,6 +907,9 @@ async function renderPluginCard(
   }
   if (config.id === "reply-thread") {
     appendCollapsible(card, "表示設定", await createReplyThreadConfig());
+  }
+  if (config.id === "quick-delete") {
+    appendCollapsible(card, "表示設定", await createQuickDeleteConfig());
   }
 }
 
