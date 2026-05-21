@@ -1,10 +1,13 @@
 import { CW_BASE_URL } from "../../../shared/constants";
 import { sleep } from "../../../shared/dom-helpers";
 import { setReactInputValue } from "../../../shared/react-input";
-import { getPluginConfig, setPluginConfig } from "../../../shared/storage";
+import { getApiToken, getPluginConfig, setPluginConfig } from "../../../shared/storage";
+import { showToast } from "../../../shared/toast";
 
 const PLUGIN_ID = "quick-task";
 const MARKER = "__scw_quick_task";
+
+let cachedMyAccountId: string | null = null;
 
 export type TaskMode =
   | "mychat-url"      // マイチャットにURL
@@ -206,7 +209,118 @@ async function setDeadline(days: number): Promise<void> {
   await sleep(150);
 }
 
+async function getMyAccountId(token: string): Promise<string | null> {
+  if (cachedMyAccountId) return cachedMyAccountId;
+  try {
+    const res = await chrome.runtime.sendMessage({ type: "fetchMe", token });
+    if (!res?.ok) return null;
+    cachedMyAccountId = String(res.me.account_id);
+    return cachedMyAccountId;
+  } catch {
+    return null;
+  }
+}
+
+function deadlineUnix(days: number): number | null {
+  if (days < 0) return null;
+  const d = new Date();
+  d.setDate(d.getDate() + days);
+  d.setHours(23, 59, 59, 0);
+  return Math.floor(d.getTime() / 1000);
+}
+
+// メッセージAPIから生body・送信者ID・送信時刻を取得
+async function fetchMessageMeta(
+  token: string,
+  roomId: string,
+  messageId: string,
+): Promise<{ body: string; aid: number; sendTime: number } | null> {
+  try {
+    const res = await chrome.runtime.sendMessage({
+      type: "fetchMessage",
+      token,
+      roomId,
+      messageId,
+    });
+    if (!res?.ok || !res.message) return null;
+    return {
+      body: String(res.message.body ?? ""),
+      aid: Number(res.message.account?.account_id ?? 0),
+      sendTime: Number(res.message.send_time ?? 0),
+    };
+  } catch {
+    return null;
+  }
+}
+
+// タスクAPI経由でタスクを登録する。成功すればtrue。
+// APIトークンがあれば画面遷移なし＆DOM操作なしでタスク追加できる。
+// 引用記法は内部記法の [qt][qtmeta aid=X time=Y]本文[/qt] を自前で組み立てる。
+async function tryExecuteTaskViaApi(
+  message: Element,
+  mode: TaskMode,
+  deadlineDays: number,
+): Promise<boolean> {
+  const token = await getApiToken();
+  if (!token) return false;
+
+  const isHere = mode === "here-url" || mode === "here-message";
+  const includeMessage = mode === "mychat-message" || mode === "here-message";
+
+  const messageRoomId = message.getAttribute("data-rid") ?? "";
+  const messageId = message.getAttribute("data-mid") ?? "";
+  if (!/^\d+$/.test(messageRoomId) || !/^\d+$/.test(messageId)) return false;
+
+  // 投稿先roomId
+  let targetRoomId: string;
+  if (isHere) {
+    targetRoomId = messageRoomId;
+  } else {
+    try {
+      targetRoomId = await getMyChatId();
+    } catch {
+      return false;
+    }
+  }
+  if (!/^\d+$/.test(targetRoomId)) return false;
+
+  // 本文組み立て: URL + 引用
+  const url = `${CW_BASE_URL}#!rid${messageRoomId}-${messageId}`;
+  let content = url;
+  if (includeMessage) {
+    const meta = await fetchMessageMeta(token, messageRoomId, messageId);
+    if (!meta) return false;
+    const quote = `[qt][qtmeta aid=${meta.aid} time=${meta.sendTime}]${meta.body}[/qt]`;
+    content = `${url}\n${quote}`;
+  }
+
+  const myAccountId = await getMyAccountId(token);
+  if (!myAccountId) return false;
+
+  const limit = deadlineUnix(deadlineDays);
+
+  try {
+    const res = await chrome.runtime.sendMessage({
+      type: "postTask",
+      token,
+      roomId: targetRoomId,
+      body: content,
+      toIds: myAccountId,
+      limit,
+    });
+    return res?.ok === true;
+  } catch {
+    return false;
+  }
+}
+
 async function executeTask(message: Element, mode: TaskMode, deadlineDays: number): Promise<void> {
+  // APIキーがあればAPI経由（画面遷移なし＆DOM操作なし）
+  if (await tryExecuteTaskViaApi(message, mode, deadlineDays)) {
+    showToast("タスクを追加しました");
+    return;
+  }
+
   const url = getMessageUrl(message);
   const includeMessage = mode === "mychat-message" || mode === "here-message";
   const isHere = mode === "here-url" || mode === "here-message";
@@ -218,6 +332,7 @@ async function executeTask(message: Element, mode: TaskMode, deadlineDays: numbe
     content = `${url}\n${body}`;
   }
 
+  // === フォールバック: DOM操作経路 ===
   if (isHere) {
     // 現チャットのridに遷移（実質リロードなし）
     const rid = message.getAttribute("data-rid") ?? "";

@@ -16,7 +16,7 @@ export const PLUGIN_CONFIGS: PluginConfig[] = [
   {
     id: "quick-task",
     name: "クイックタスク",
-    description: "メッセージにmy taskボタンを追加",
+    description: "メッセージにmy taskボタンを追加。共通APIキーが設定されていればタスクAPI経由で登録（画面遷移なし）、未設定時はマイチャットへの画面遷移＆DOM操作で登録します",
     defaultEnabled: true,
   },
   {

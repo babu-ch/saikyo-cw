@@ -299,6 +299,57 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
     return;
   }
 
+  if (message.type === "fetchMessage") {
+    if (!isValidRoomId(message.roomId)) {
+      sendResponse({ ok: false });
+      return;
+    }
+    if (!/^\d+$/.test(String(message.messageId))) {
+      sendResponse({ ok: false });
+      return;
+    }
+    fetch(
+      `https://api.chatwork.com/v2/rooms/${message.roomId}/messages/${message.messageId}`,
+      { headers: { "X-ChatWorkToken": token } },
+    )
+      .then((res) => {
+        if (!res.ok) throw new Error(`API error: ${res.status}`);
+        return res.json();
+      })
+      .then((msg) => sendResponse({ ok: true, message: msg }))
+      .catch((e) => sendResponse({ ok: false, error: e.message }));
+    return true;
+  }
+
+  if (message.type === "postTask") {
+    if (!isValidRoomId(message.roomId)) {
+      sendResponse({ ok: false, error: "Invalid roomId" });
+      return;
+    }
+    const params = new URLSearchParams();
+    params.append("body", String(message.body ?? ""));
+    params.append("to_ids", String(message.toIds ?? ""));
+    if (message.limit) {
+      params.append("limit", String(message.limit));
+      params.append("limit_type", "date");
+    }
+    fetch(`https://api.chatwork.com/v2/rooms/${message.roomId}/tasks`, {
+      method: "POST",
+      headers: {
+        "X-ChatWorkToken": token,
+        "Content-Type": "application/x-www-form-urlencoded",
+      },
+      body: params.toString(),
+    })
+      .then(async (res) => {
+        if (!res.ok) throw new Error(`API error: ${res.status}`);
+        return res.json();
+      })
+      .then((result) => sendResponse({ ok: true, result }))
+      .catch((e) => sendResponse({ ok: false, error: e.message }));
+    return true;
+  }
+
   if (message.type === "fetchMessages") {
     if (!isValidRoomId(message.roomId)) {
       sendResponse({ ok: false });
