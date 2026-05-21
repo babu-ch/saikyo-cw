@@ -411,26 +411,6 @@ function injectStyles() {
       border-bottom: 1px solid #eee;
       margin-bottom: 1px;
     }
-    #cw-mention-toast {
-      position: fixed;
-      bottom: 20px;
-      right: 20px;
-      z-index: 1000000;
-      background: #333;
-      color: #fff;
-      padding: 12px 16px;
-      border-radius: 8px;
-      font-size: 13px;
-      line-height: 1.6;
-      box-shadow: 0 4px 12px rgba(0,0,0,.3);
-      animation: cw-toast-fade 5s ease-in-out;
-    }
-    @keyframes cw-toast-fade {
-      0% { opacity: 0; transform: translateY(10px); }
-      10% { opacity: 1; transform: translateY(0); }
-      80% { opacity: 1; }
-      100% { opacity: 0; }
-    }
   `;
   document.head.appendChild(styleEl);
 }

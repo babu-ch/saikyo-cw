@@ -1,10 +1,10 @@
 import { getPluginConfig } from "../../../shared/storage";
+import { hideToast, showToast } from "../../../shared/toast";
 
 const PLUGIN_ID = "mention-group";
 const STYLE_ID = "scw-mention-group-style";
 const BTN_ID = "scw-mention-group-btn";
 const DROPDOWN_ID = "scw-mention-group-dropdown";
-const TOAST_ID = "scw-mention-group-toast";
 
 // chrome.storage のキー（元の拡張と互換性を保つ）
 const STORAGE_KEY = "quickMentionGroups";
@@ -126,29 +126,6 @@ const STYLES = `
     font-family: -apple-system, BlinkMacSystemFont, "Hiragino Sans", sans-serif;
   }
 
-  #${TOAST_ID} {
-    position: fixed;
-    bottom: 80px;
-    left: 50%;
-    transform: translateX(-50%) translateY(6px);
-    z-index: 100001;
-    background: #333;
-    color: #fff;
-    padding: 8px 18px;
-    border-radius: 20px;
-    font-size: 13px;
-    font-family: -apple-system, BlinkMacSystemFont, "Hiragino Sans", sans-serif;
-    box-shadow: 0 2px 10px rgba(0,0,0,0.3);
-    opacity: 0;
-    transition: all 0.25s ease;
-    pointer-events: none;
-    white-space: nowrap;
-  }
-  #${TOAST_ID}.scw-mg-toast-show {
-    opacity: 1;
-    transform: translateX(-50%) translateY(0);
-  }
-
   /* ダークモード */
   body.mainContentArea--dark #${DROPDOWN_ID},
   body[data-theme="dark"] #${DROPDOWN_ID},
@@ -249,21 +226,6 @@ function insertMention(members: MemberInfo[]): void {
   chatInput.focus();
 
   showToast(`${members.length}人にメンション追加`);
-}
-
-function showToast(message: string): void {
-  const existing = document.getElementById(TOAST_ID);
-  if (existing) existing.remove();
-
-  const toast = document.createElement("div");
-  toast.id = TOAST_ID;
-  toast.textContent = message;
-  document.body.appendChild(toast);
-  requestAnimationFrame(() => toast.classList.add("scw-mg-toast-show"));
-  setTimeout(() => {
-    toast.classList.remove("scw-mg-toast-show");
-    setTimeout(() => toast.remove(), 300);
-  }, 2000);
 }
 
 function closeDropdown(): void {
@@ -521,6 +483,6 @@ export function removeGroupPicker(): void {
   const wrapper = btn?.closest("._showDescription");
   wrapper?.remove();
   closeDropdown();
-  document.getElementById(TOAST_ID)?.remove();
+  hideToast();
   document.getElementById(STYLE_ID)?.remove();
 }
