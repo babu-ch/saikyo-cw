@@ -14,11 +14,14 @@ const DEBUG_PREFIX = "[saikyo-cw][quick-delete]";
 export type QuickDeletePosition = "left" | "right";
 export interface QuickDeleteConfig {
   position?: QuickDeletePosition;
+  // Shift+クリックで確認ダイアログをスキップして即削除する。デフォルトOFF。
+  shiftInstantDelete?: boolean;
 }
 
 let observer: MutationObserver | null = null;
 let cachedMyAccountId: string | null = null;
 let currentPosition: QuickDeletePosition = "left";
+let currentShiftInstant = false;
 let storageListener: Parameters<typeof chrome.storage.onChanged.addListener>[0] | null = null;
 
 function injectStyle(): void {
@@ -141,20 +144,26 @@ function injectButton(timeStampEl: Element, myAccountId: string, token: string):
   btn.type = "button";
   btn.className = BTN_CLASS;
   btn.textContent = "×";
-  btn.title = "メッセージを削除";
+  btn.title = currentShiftInstant
+    ? "メッセージを削除（Shift+クリックで確認なし即削除）"
+    : "メッセージを削除";
   btn.addEventListener("click", async (e) => {
     e.stopPropagation();
     e.preventDefault();
-    const preview = getMessagePreview(msg);
-    const ok = await showConfirmDialog({
-      title: "メッセージ削除",
-      message: "以下のメッセージを削除します。この操作は取り消せません。",
-      preview: preview || undefined,
-      okText: "削除する",
-      cancelText: "キャンセル",
-      danger: true,
-    });
-    if (!ok) return;
+    // Shift+クリック かつ 即削除設定がONなら確認ダイアログをスキップ
+    const skipConfirm = currentShiftInstant && e.shiftKey;
+    if (!skipConfirm) {
+      const preview = getMessagePreview(msg);
+      const ok = await showConfirmDialog({
+        title: "メッセージ削除",
+        message: "以下のメッセージを削除します。この操作は取り消せません。",
+        preview: preview || undefined,
+        okText: "削除する",
+        cancelText: "キャンセル",
+        danger: true,
+      });
+      if (!ok) return;
+    }
     const deleted = await deleteMessage(roomId, messageId, token);
     if (deleted) {
       showToast("削除しました");
@@ -176,6 +185,7 @@ function injectButton(timeStampEl: Element, myAccountId: string, token: string):
 async function loadConfig(): Promise<void> {
   const c = await getPluginConfig<QuickDeleteConfig>(PLUGIN_ID);
   currentPosition = c?.position === "right" ? "right" : "left";
+  currentShiftInstant = c?.shiftInstantDelete === true;
 }
 
 export const quickDeletePlugin: CwPlugin = {

@@ -1,6 +1,6 @@
 {
   "name": "saikyo-cw",
-  "version": "0.16.1",
+  "version": "0.17.0",
   "description": "All-in-one Chatwork enhancement Chrome extension",
   "private": true,
   "type": "module",
