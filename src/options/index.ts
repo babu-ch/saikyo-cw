@@ -190,8 +190,9 @@ async function createQuickTaskConfig(): Promise<HTMLElement> {
 async function createQuickDeleteConfig(): Promise<HTMLElement> {
   const section = document.createElement("div");
 
-  const config = await getPluginConfig<{ position?: "left" | "right" }>("quick-delete");
+  const config = await getPluginConfig<{ position?: "left" | "right"; shiftInstantDelete?: boolean }>("quick-delete");
   const currentPosition = config?.position === "right" ? "right" : "left";
+  const shiftInstant = config?.shiftInstantDelete === true;
 
   const options = [
     { value: "left", label: "時刻の左側" },
@@ -214,6 +215,14 @@ async function createQuickDeleteConfig(): Promise<HTMLElement> {
       </div>
       <div style="font-size: 11px; color: #888; margin-top: 4px;">設定変更は新規メッセージから反映されます</div>
     </div>
+    <div style="margin-top: 16px;">
+      <label class="api-key-label">Shift+クリックで即削除</label>
+      <label style="display: inline-flex; align-items: center; gap: 6px; font-size: 13px; cursor: pointer; margin-top: 6px;">
+        <input type="checkbox" id="scw-qd-shift-instant" ${shiftInstant ? "checked" : ""}>
+        ×ボタンをShift+クリックで確認ダイアログを出さず即削除する
+      </label>
+      <div style="font-size: 11px; color: #888; margin-top: 4px;">OFFの場合は常に確認ダイアログを表示します。設定変更は新規メッセージから反映されます</div>
+    </div>
   `;
 
   section.querySelectorAll<HTMLInputElement>('input[name="scw-qd-position"]').forEach((radio) => {
@@ -223,6 +232,13 @@ async function createQuickDeleteConfig(): Promise<HTMLElement> {
       await setPluginConfig("quick-delete", { ...existing, position: radio.value });
       showStatus("×ボタンの位置を保存しました");
     });
+  });
+
+  const shiftCheckbox = section.querySelector<HTMLInputElement>("#scw-qd-shift-instant");
+  shiftCheckbox?.addEventListener("change", async () => {
+    const existing = (await getPluginConfig<Record<string, unknown>>("quick-delete")) ?? {};
+    await setPluginConfig("quick-delete", { ...existing, shiftInstantDelete: shiftCheckbox.checked });
+    showStatus(shiftCheckbox.checked ? "Shift+クリック即削除を有効にしました" : "Shift+クリック即削除を無効にしました");
   });
 
   return section;

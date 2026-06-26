@@ -53,6 +53,14 @@ function getMessageUrl(message: Element): string {
   return `${CW_BASE_URL}#!rid${rid}-${mid}`;
 }
 
+// Chatworkのタスクbodyは4バイト文字（OSのUnicode絵文字＝サロゲートペア）を
+// 受け付けず、最初の4バイト文字の位置で本文を切り捨てる（messagesは保存できるのにtasksは切る）。
+// そのまま転記すると絵文字以降が丸ごと消えるため、送信前にサロゲートペアを除去する。
+// `(bow)` などChatwork独自絵文字の記法はASCIIなので影響を受けず残る。
+function stripAstralEmoji(text: string): string {
+  return text.replace(/[\uD800-\uDBFF][\uDC00-\uDFFF]/g, "");
+}
+
 function getMessageText(message: Element): string {
   const spans = message.querySelectorAll("pre span");
   return Array.from(spans).map((e) => (e as HTMLElement).innerText).join("\n");
@@ -290,7 +298,7 @@ async function tryExecuteTaskViaApi(
   if (includeMessage) {
     const meta = await fetchMessageMeta(token, messageRoomId, messageId);
     if (!meta) return false;
-    const quote = `[qt][qtmeta aid=${meta.aid} time=${meta.sendTime}]${meta.body}[/qt]`;
+    const quote = `[qt][qtmeta aid=${meta.aid} time=${meta.sendTime}]${stripAstralEmoji(meta.body)}[/qt]`;
     content = `${url}\n${quote}`;
   }
 
@@ -328,7 +336,7 @@ async function executeTask(message: Element, mode: TaskMode, deadlineDays: numbe
   let content = url;
   if (includeMessage) {
     const quoted = await getMessageTextViaQuote(message);
-    const body = quoted ?? getMessageText(message);
+    const body = stripAstralEmoji(quoted ?? getMessageText(message));
     content = `${url}\n${body}`;
   }
 
