@@ -19,6 +19,12 @@ interface Member {
   avatar_image_url: string;
 }
 
+export function buildMentionText(
+  member: Pick<Member, "account_id" | "name">,
+): string {
+  return `[To:${member.account_id}]${member.name}さん\n`;
+}
+
 function getRoomId(): string | undefined {
   return location.hash.match(/#!rid(\d+)/)?.[1];
 }
@@ -251,7 +257,7 @@ function insertMention(
   const atIdx = before.lastIndexOf("@");
   const hasAtQuery = atIdx !== -1 && !/[\s\n]/.test(before.slice(atIdx + 1));
 
-  const mention = `[To:${member.account_id}]${member.name}\n`;
+  const mention = buildMentionText(member);
   let newVal: string;
   let newPos: number;
 

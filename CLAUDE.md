@@ -61,6 +61,7 @@ ChatworkのDOMは内部クラス名が頻繁に変わる + React仮想DOMで構�
 - **メッセージハンドラ**: `chrome.runtime.onMessage`のリスナーでは`sender.url`が自拡張またはchatwork.comであることを検証する
 - **URL補間**: ユーザー入力やメッセージ経由の値をURL文字列に埋め込む前に形式をバリデーションする（例: roomIdは`/^\d+$/`）
 - **ログ**: ユーザー名・アカウントIDなどの個人情報をログに含めない
+- **テストデータ・PR・コミット**: 実在するアカウントID・人名を書かない。会話で例示された実データもそのまま使わず、必ずダミー値（`12345` / `テスト太郎` など）に置き換える。push前に `grep` で混入を確認する
 - **CSP**: `manifest.json`の`content_security_policy`（`script-src 'self'; object-src 'none'`）を維持する
 
 ## UI方針
