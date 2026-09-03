@@ -187,33 +187,6 @@ async function createQuickTaskConfig(): Promise<HTMLElement> {
 }
 
 // ===== クイック削除設定 =====
-async function createMentionAutocompleteConfig(): Promise<HTMLElement> {
-  const section = document.createElement("div");
-
-  const config = await getPluginConfig<{ appendSan?: boolean }>("mention-autocomplete");
-  const appendSan = config?.appendSan !== false;
-
-  section.innerHTML = `
-    <div style="margin-top: 8px;">
-      <label class="api-key-label">名前の末尾に「さん」を付ける</label>
-      <label style="display: inline-flex; align-items: center; gap: 6px; font-size: 13px; cursor: pointer; margin-top: 6px;">
-        <input type="checkbox" id="scw-ma-append-san" ${appendSan ? "checked" : ""}>
-        メンション挿入時に <code>[To:ID]名前さん</code> の形式にする（Chatwork純正のTOと同じ）
-      </label>
-      <div style="font-size: 11px; color: #888; margin-top: 4px;">OFFにすると <code>[To:ID]名前</code> の形式で挿入します</div>
-    </div>
-  `;
-
-  const checkbox = section.querySelector<HTMLInputElement>("#scw-ma-append-san");
-  checkbox?.addEventListener("change", async () => {
-    const existing = (await getPluginConfig<Record<string, unknown>>("mention-autocomplete")) ?? {};
-    await setPluginConfig("mention-autocomplete", { ...existing, appendSan: checkbox.checked });
-    showStatus("「さん」の設定を保存しました");
-  });
-
-  return section;
-}
-
 async function createQuickDeleteConfig(): Promise<HTMLElement> {
   const section = document.createElement("div");
 
@@ -953,9 +926,6 @@ async function renderPluginCard(
   }
   if (config.id === "quick-delete") {
     appendCollapsible(card, "表示設定", await createQuickDeleteConfig());
-  }
-  if (config.id === "mention-autocomplete") {
-    appendCollapsible(card, "挿入設定", await createMentionAutocompleteConfig());
   }
 }
 

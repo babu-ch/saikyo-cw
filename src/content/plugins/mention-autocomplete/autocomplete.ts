@@ -1,19 +1,6 @@
 import { CW } from "../../../shared/chatwork-selectors";
 import { setReactInputValue } from "../../../shared/react-input";
-import {
-  getApiToken,
-  getPluginConfig,
-  storageKeyForPlugin,
-} from "../../../shared/storage";
-
-const PLUGIN_ID = "mention-autocomplete";
-
-export interface MentionAutocompleteConfig {
-  /** 挿入するメンションの名前末尾に「さん」を付ける（CW純正TOと同じ形式）。デフォルトtrue */
-  appendSan?: boolean;
-}
-
-let appendSan = true;
+import { getApiToken } from "../../../shared/storage";
 
 let memberCache: Record<string, Member[]> = {};
 let myAccountId: string | null = null;
@@ -32,29 +19,11 @@ interface Member {
   avatar_image_url: string;
 }
 
-/**
- * 挿入するメンション文字列を生成する。
- * CW純正のTO選択は `[To:ID]名前さん` 形式なので、デフォルトではそれに合わせる。
- */
+/** CW純正のTO選択と同じ `[To:ID]名前さん` 形式 */
 export function buildMentionText(
   member: Pick<Member, "account_id" | "name">,
-  withSan: boolean,
 ): string {
-  return `[To:${member.account_id}]${member.name}${withSan ? "さん" : ""}\n`;
-}
-
-async function loadConfig(): Promise<void> {
-  const c = await getPluginConfig<MentionAutocompleteConfig>(PLUGIN_ID);
-  appendSan = c?.appendSan !== false;
-}
-
-function onStorageChanged(
-  changes: Record<string, chrome.storage.StorageChange>,
-  area: string,
-): void {
-  if (area !== "sync") return;
-  if (!(storageKeyForPlugin(PLUGIN_ID) in changes)) return;
-  void loadConfig();
+  return `[To:${member.account_id}]${member.name}さん\n`;
 }
 
 function getRoomId(): string | undefined {
@@ -289,7 +258,7 @@ function insertMention(
   const atIdx = before.lastIndexOf("@");
   const hasAtQuery = atIdx !== -1 && !/[\s\n]/.test(before.slice(atIdx + 1));
 
-  const mention = buildMentionText(member, appendSan);
+  const mention = buildMentionText(member);
   let newVal: string;
   let newPos: number;
 
@@ -455,8 +424,6 @@ function injectStyles() {
 
 export function initAutocomplete(): void {
   injectStyles();
-  void loadConfig();
-  chrome.storage.onChanged.addListener(onStorageChanged);
   document.addEventListener("input", onInput, true);
   document.addEventListener("keydown", onKeydown, true);
   document.addEventListener("click", onClick);
@@ -465,7 +432,6 @@ export function initAutocomplete(): void {
 
 export function destroyAutocomplete(): void {
   hideDropdown();
-  chrome.storage.onChanged.removeListener(onStorageChanged);
   memberCache = {};
   myAccountId = null;
   activeTextarea = null;
