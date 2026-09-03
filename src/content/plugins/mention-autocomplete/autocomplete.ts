@@ -19,7 +19,6 @@ interface Member {
   avatar_image_url: string;
 }
 
-/** CW純正のTO選択と同じ `[To:ID]名前さん` 形式 */
 export function buildMentionText(
   member: Pick<Member, "account_id" | "name">,
 ): string {
