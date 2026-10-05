@@ -12,6 +12,7 @@ import { vipNotifyPlugin } from "./plugins/vip-notify";
 import { chatExportPlugin } from "./plugins/chat-export";
 import { replyThreadPlugin } from "./plugins/reply-thread";
 import { quickDeletePlugin } from "./plugins/quick-delete";
+import { linkCopyPlugin } from "./plugins/link-copy";
 
 const ALL_PLUGINS: CwPlugin[] = [
   inputToolsPlugin,
@@ -26,6 +27,7 @@ const ALL_PLUGINS: CwPlugin[] = [
   chatExportPlugin,
   replyThreadPlugin,
   quickDeletePlugin,
+  linkCopyPlugin,
 ];
 
 const activePlugins = new Map<string, CwPlugin>();
