@@ -1,5 +1,5 @@
 import { describe, it, expect, afterEach } from "vitest";
-import { waitForElement } from "../shared/dom-helpers";
+import { waitFor, waitForElement } from "../shared/dom-helpers";
 
 describe("dom-helpers", () => {
   afterEach(() => {
@@ -31,6 +31,22 @@ describe("dom-helpers", () => {
       await expect(
         waitForElement("#never-exists", 50),
       ).rejects.toThrow("Timeout waiting for: #never-exists");
+    });
+  });
+
+  describe("waitFor", () => {
+    it("後から見つかった値を返す", async () => {
+      const promise = waitFor(() => document.querySelector("#later"));
+      setTimeout(() => {
+        const el = document.createElement("div");
+        el.id = "later";
+        document.body.appendChild(el);
+      }, 10);
+      expect((await promise)?.id).toBe("later");
+    });
+
+    it("見つからないままタイムアウトしたらnull", async () => {
+      expect(await waitFor(() => document.querySelector("#never"), 20)).toBeNull();
     });
   });
 });
