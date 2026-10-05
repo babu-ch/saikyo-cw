@@ -17,7 +17,7 @@ export const PLUGIN_CONFIGS: PluginConfig[] = [
     id: "action-menu",
     name: "アクションメニュー",
     description:
-      "メッセージにhoverすると出るメニューの項目を選べます。使わない純正の項目を隠したり、拡張のボタン（my・リンクをコピー）を出したりできます。",
+      "メッセージにhoverすると出るメニューの項目を選べます。使わない純正の項目を隠したり、拡張のボタン（ホバーリアクション・my・リンクをコピー）を出したりできます。",
     defaultEnabled: true,
     alwaysOn: true,
   },
@@ -44,8 +44,9 @@ export const PLUGIN_CONFIGS: PluginConfig[] = [
     id: "hover-reaction",
     name: "ホバーリアクション",
     description:
-      "メッセージのアクションメニューの下に、よく使うリアクションをワンクリック送信できるボタンを表示",
+      "よく使うリアクションをアクションメニューに並べてワンクリックで送る。並べる場所はメニューの下の段か「リアクション」の位置から選べる",
     defaultEnabled: true,
+    managedBy: "action-menu",
   },
   {
     id: "mention-autocomplete",

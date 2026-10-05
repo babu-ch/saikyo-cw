@@ -6,6 +6,7 @@ import {
   getDefaultEnabledIds,
 } from "../shared/input-tools-buttons";
 import { ACTION_MENU_ITEMS, type ActionMenuItem } from "../shared/action-menu-items";
+import { ALL_REACTIONS, EMOTICON_BASE, resolveReactions } from "../shared/reactions";
 import {
   getPluginSettings,
   getPluginConfig,
@@ -201,7 +202,9 @@ async function createActionMenuConfig(
     const subSettings =
       item.id === "quick-task"
         ? createCollapsible("タスク設定", await createQuickTaskConfig())
-        : null;
+        : item.id === "hover-reaction"
+          ? createCollapsible("リアクション設定", await createHoverReactionConfig())
+          : null;
     if (subSettings) {
       const sub = document.createElement("div");
       sub.className = "action-menu-sub";
@@ -927,23 +930,32 @@ async function createHoverReactionConfig(): Promise<HTMLElement> {
   const section = document.createElement("div");
 
   const config = await getPluginConfig<{
+    display?: "below" | "inline";
     alignment?: "right" | "left";
+    reactions?: string[];
     stopAnimation?: boolean;
   }>("hover-reaction");
-  const isLeft = (config?.alignment ?? "right") === "left";
+  let selected = resolveReactions(config?.reactions).map((r) => r.emoticon);
+  let display = config?.display === "inline" ? "inline" : "below";
+  let alignment = config?.alignment === "left" ? "left" : "right";
   const stopAnimation = config?.stopAnimation ?? false;
 
   section.innerHTML = `
-    <div style="margin-top: 8px; display: flex; gap: 16px; align-items: center;">
-      <label style="display: flex; align-items: center; gap: 6px; cursor: pointer;">
-        <input type="radio" name="scw-hr-align" value="left" ${isLeft ? "checked" : ""}>
-        <span>👈 左寄せ</span>
-      </label>
-      <label style="display: flex; align-items: center; gap: 6px; cursor: pointer;">
-        <input type="radio" name="scw-hr-align" value="right" ${!isLeft ? "checked" : ""}>
-        <span>右寄せ 👉</span>
-      </label>
+    <div class="reaction-config-label">表示位置</div>
+    <div class="reaction-config-options">
+      <label><input type="radio" name="scw-hr-display" value="below" ${display === "below" ? "checked" : ""}> メニューの下の段</label>
+      <label><input type="radio" name="scw-hr-display" value="inline" ${display === "inline" ? "checked" : ""}> 「リアクション」の位置</label>
     </div>
+    <div class="reaction-config-options reaction-config-align">
+      <label><input type="radio" name="scw-hr-align" value="left" ${alignment === "left" ? "checked" : ""}> 👈 左寄せ</label>
+      <label><input type="radio" name="scw-hr-align" value="right" ${alignment === "right" ? "checked" : ""}> 右寄せ 👉</label>
+    </div>
+    <div class="reaction-config-note"></div>
+    <div class="reaction-config-label">メニューでの見え方（ドラッグで並べ替え・×で外す）</div>
+    <div class="reaction-preview-menu">返信　リアクション　引用 …</div>
+    <div class="reaction-preview"></div>
+    <div class="reaction-config-label">追加する（押すと末尾に追加・ドラッグで好きな位置へ）</div>
+    <div class="reaction-grid"></div>
     <div style="margin-top: 12px; display: flex; align-items: center; justify-content: space-between; gap: 12px;">
       <span>絵文字のアニメーションを停止<span style="color: #888; font-size: 11px; margin-left: 6px;">（静止画で表示）</span></span>
       <label class="toggle">
@@ -953,18 +965,258 @@ async function createHoverReactionConfig(): Promise<HTMLElement> {
     </div>
   `;
 
-  section
-    .querySelectorAll<HTMLInputElement>('input[name="scw-hr-align"]')
-    .forEach((input) => {
-      input.addEventListener("change", async () => {
-        if (!input.checked) return;
-        const alignment = input.value as "right" | "left";
-        const existing =
-          (await getPluginConfig<Record<string, unknown>>("hover-reaction")) ?? {};
-        await setPluginConfig("hover-reaction", { ...existing, alignment });
-        showStatus(`表示位置を${alignment === "left" ? "左寄せ" : "右寄せ"}にしました`);
-      });
+  const previewEl = section.querySelector<HTMLElement>(".reaction-preview")!;
+  const previewMenuEl = section.querySelector<HTMLElement>(".reaction-preview-menu")!;
+  const alignEl = section.querySelector<HTMLElement>(".reaction-config-align")!;
+  const noteEl = section.querySelector<HTMLElement>(".reaction-config-note")!;
+  const gridEl = section.querySelector<HTMLElement>(".reaction-grid")!;
+  const byEmoticon = new Map(ALL_REACTIONS.map((r) => [r.emoticon, r]));
+
+  // ドラッグ中のリアクション。fromGrid=trueなら下の一覧から持ってきたもの
+  let drag: { emoticon: string; fromGrid: boolean; element: HTMLElement; handled: boolean } | null = null;
+
+  function createEmoticonImg(emoticon: string): HTMLImageElement {
+    const img = document.createElement("img");
+    img.src = `${EMOTICON_BASE}${emoticon}`;
+    img.alt = byEmoticon.get(emoticon)?.describe ?? "";
+    img.draggable = false;
+    return img;
+  }
+
+  function createStatic(text: string): HTMLElement {
+    const el = document.createElement("span");
+    el.className = "reaction-preview__static";
+    el.textContent = text;
+    return el;
+  }
+
+  async function save(next: string[], message: string): Promise<void> {
+    selected = next;
+    render();
+    const existing =
+      (await getPluginConfig<Record<string, unknown>>("hover-reaction")) ?? {};
+    await setPluginConfig("hover-reaction", { ...existing, reactions: selected });
+    showStatus(message);
+  }
+
+  function nameOf(emoticon: string): string {
+    return byEmoticon.get(emoticon)?.describe ?? "";
+  }
+
+  function createPreviewItem(emoticon: string): HTMLElement {
+    const item = document.createElement("span");
+    item.className = "reaction-preview__item";
+    item.draggable = true;
+    item.dataset.emoticon = emoticon;
+    item.title = nameOf(emoticon);
+
+    const remove = document.createElement("button");
+    remove.type = "button";
+    remove.className = "reaction-preview__remove";
+    remove.textContent = "×";
+    remove.title = "外す";
+    remove.addEventListener("click", () => {
+      void save(
+        selected.filter((e) => e !== emoticon),
+        `「${nameOf(emoticon)}」を外しました`,
+      );
     });
+
+    item.append(createEmoticonImg(emoticon), remove);
+    item.addEventListener("dragstart", (e) => {
+      drag = { emoticon, fromGrid: false, element: item, handled: false };
+      item.classList.add("is-dragging");
+      e.dataTransfer?.setData("text/plain", emoticon);
+      if (e.dataTransfer) e.dataTransfer.effectAllowed = "move";
+    });
+    item.addEventListener("dragend", () => finishDrag());
+    return item;
+  }
+
+  function previewItems(): HTMLElement[] {
+    return Array.from(previewEl.querySelectorAll<HTMLElement>(".reaction-preview__item"));
+  }
+
+  function orderInPreview(): string[] {
+    return previewItems().map((el) => el.dataset.emoticon ?? "");
+  }
+
+  // ポインタの位置から、ドラッグ中のリアクションをどの手前に入れるかを決める（折り返しにも対応）
+  function findInsertBefore(x: number, y: number, dragging: HTMLElement): Element | null {
+    for (const el of previewItems()) {
+      if (el === dragging) continue;
+      const r = el.getBoundingClientRect();
+      if (y < r.top || (y <= r.bottom && x < r.left + r.width / 2)) return el;
+    }
+    // 末尾（「リアクションの位置」のときは純正の「リアクション」の手前）
+    return previewEl.querySelector(".reaction-preview__more");
+  }
+
+  function finishDrag(): void {
+    const current = drag;
+    drag = null;
+    if (!current) return;
+    current.element.classList.remove("is-dragging");
+    gridEl.classList.remove("is-drop-target");
+    if (current.handled) return;
+    if (current.fromGrid) {
+      // 見本の外で離したら追加しない
+      render();
+      return;
+    }
+    // 並べ替えはドラッグ中に見本の上で動かしてあるので、その並びで確定する
+    const order = orderInPreview();
+    if (order.join() !== selected.join()) {
+      void save(order, "並び順を保存しました");
+    }
+  }
+
+  previewEl.addEventListener("dragover", (e) => {
+    if (!drag) return;
+    e.preventDefault();
+    if (drag.fromGrid && !previewEl.contains(drag.element)) {
+      drag.element.classList.add("is-dragging");
+    }
+    const before = findInsertBefore(e.clientX, e.clientY, drag.element);
+    // 一覧から持ってきてまだ見本に入っていないものは、位置が末尾でも必ず入れる
+    if (!previewEl.contains(drag.element) || before !== drag.element.nextSibling) {
+      previewEl.insertBefore(drag.element, before);
+    }
+  });
+
+  previewEl.addEventListener("dragleave", (e) => {
+    // 一覧から持ってきたものは、見本の外に出たら仮置きを消す
+    if (!drag?.fromGrid || previewEl.contains(e.relatedTarget as Node | null)) return;
+    drag.element.remove();
+  });
+
+  previewEl.addEventListener("drop", (e) => {
+    if (!drag) return;
+    e.preventDefault();
+    drag.handled = true;
+    const { emoticon, fromGrid } = drag;
+    void save(
+      orderInPreview(),
+      fromGrid ? `「${nameOf(emoticon)}」を追加しました` : "並び順を保存しました",
+    );
+  });
+
+  // 見本から下の一覧へドラッグしたら外す
+  gridEl.addEventListener("dragover", (e) => {
+    if (!drag || drag.fromGrid) return;
+    e.preventDefault();
+    gridEl.classList.add("is-drop-target");
+  });
+  gridEl.addEventListener("dragleave", (e) => {
+    if (!gridEl.contains(e.relatedTarget as Node | null)) {
+      gridEl.classList.remove("is-drop-target");
+    }
+  });
+  gridEl.addEventListener("drop", (e) => {
+    if (!drag || drag.fromGrid) return;
+    e.preventDefault();
+    drag.handled = true;
+    const { emoticon } = drag;
+    void save(
+      selected.filter((x) => x !== emoticon),
+      `「${nameOf(emoticon)}」を外しました`,
+    );
+  });
+
+  function renderPreview(): void {
+    const items = selected.map(createPreviewItem);
+    const empty = createStatic("（なし）");
+    empty.classList.add("reaction-preview__empty");
+    const inline = display === "inline";
+
+    // メニューの下の段のときは、メニューの下に段だけを並べる
+    previewMenuEl.hidden = inline;
+    alignEl.hidden = inline;
+    previewEl.classList.toggle("is-below", !inline);
+    previewEl.classList.toggle("is-left", !inline && alignment === "left");
+    noteEl.textContent = inline
+      ? "純正の「リアクション」はアイコンだけになり、押すと全種類の一覧を開きます。自分が押しているリアクションは色付きで表示し、もう一度押すと取り消します。"
+      : "";
+
+    if (!inline) {
+      previewEl.replaceChildren(...(items.length > 0 ? items : [empty]));
+      return;
+    }
+    const more = createStatic("☺︎");
+    more.classList.add("reaction-preview__more");
+    more.title = "純正の「リアクション」（押すと全種類の一覧）";
+    previewEl.replaceChildren(
+      createStatic("返信"),
+      ...(items.length > 0 ? items : [empty]),
+      more,
+      createStatic("引用 …"),
+    );
+  }
+
+  function renderGrid(): void {
+    gridEl.replaceChildren(
+      ...ALL_REACTIONS.map((r) => {
+        const btn = document.createElement("button");
+        btn.type = "button";
+        btn.className = "reaction-grid__btn";
+        btn.title = r.describe;
+        const added = selected.includes(r.emoticon);
+        btn.disabled = added;
+        btn.draggable = !added;
+        btn.appendChild(createEmoticonImg(r.emoticon));
+        btn.addEventListener("click", () => {
+          void save([...selected, r.emoticon], `「${r.describe}」を追加しました`);
+        });
+        btn.addEventListener("dragstart", (e) => {
+          const placeholder = createPreviewItem(r.emoticon);
+          drag = { emoticon: r.emoticon, fromGrid: true, element: placeholder, handled: false };
+          e.dataTransfer?.setData("text/plain", r.emoticon);
+          if (e.dataTransfer) e.dataTransfer.effectAllowed = "copy";
+          previewEl.querySelector(".reaction-preview__empty")?.remove();
+        });
+        btn.addEventListener("dragend", () => finishDrag());
+        return btn;
+      }),
+    );
+  }
+
+  function render(): void {
+    renderPreview();
+    renderGrid();
+  }
+
+  render();
+
+  async function saveOption(values: Record<string, unknown>, message: string): Promise<void> {
+    const existing =
+      (await getPluginConfig<Record<string, unknown>>("hover-reaction")) ?? {};
+    await setPluginConfig("hover-reaction", { ...existing, ...values });
+    showStatus(message);
+  }
+
+  section.querySelectorAll<HTMLInputElement>('input[name="scw-hr-display"]').forEach((input) => {
+    input.addEventListener("change", () => {
+      if (!input.checked) return;
+      display = input.value === "inline" ? "inline" : "below";
+      renderPreview();
+      void saveOption(
+        { display },
+        display === "inline" ? "「リアクション」の位置に並べます" : "メニューの下の段に並べます",
+      );
+    });
+  });
+
+  section.querySelectorAll<HTMLInputElement>('input[name="scw-hr-align"]').forEach((input) => {
+    input.addEventListener("change", () => {
+      if (!input.checked) return;
+      alignment = input.value === "left" ? "left" : "right";
+      renderPreview();
+      void saveOption(
+        { alignment },
+        `表示位置を${alignment === "left" ? "左寄せ" : "右寄せ"}にしました`,
+      );
+    });
+  });
 
   section
     .querySelector<HTMLInputElement>("#scw-hr-stop-anim")!
@@ -1020,9 +1272,6 @@ async function renderPluginCard(
   }
   if (config.id === "mention-group") {
     appendCollapsible(card, "グループ管理", await createMentionGroupConfig());
-  }
-  if (config.id === "hover-reaction") {
-    appendCollapsible(card, "表示設定", await createHoverReactionConfig());
   }
   if (config.id === "vip-notify") {
     appendCollapsible(card, "VIP管理", await createVipNotifyConfig());
