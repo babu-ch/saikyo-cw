@@ -1,5 +1,6 @@
 import { describe, it, expect, vi, afterEach } from "vitest";
-import { observeDOM } from "../shared/mutation-observer";
+import { observeActionNavs, observeDOM } from "../shared/mutation-observer";
+import { injectMyTaskButton } from "../content/plugins/quick-task/task-injector";
 
 describe("observeDOM", () => {
   afterEach(() => {
@@ -78,5 +79,49 @@ describe("observeDOM", () => {
     await new Promise((r) => setTimeout(r, 0));
 
     expect(cb).toHaveBeenCalledTimes(0);
+  });
+});
+
+describe("observeActionNavs", () => {
+  afterEach(() => {
+    document.body.innerHTML = "";
+  });
+
+  function li(icon: string, label: string): HTMLElement {
+    const el = document.createElement("li");
+    el.innerHTML = `<button class="actionButton"><span class="iconContainer"><svg><use href="#${icon}"></use></svg></span><span class="actionLabel">${label}</span></button>`;
+    return el;
+  }
+
+  // ページを開いて最初のホバーと同じく、空のメニューが先に入り、項目が後から入る
+  async function addEmptyNavThenItems(): Promise<Element> {
+    const nav = document.createElement("ul");
+    nav.className = "messageActionNav";
+    document.body.appendChild(nav);
+    await new Promise((r) => setTimeout(r, 0));
+    nav.append(li("icon_reply", "返信"), li("icon_task", "タスク"), li("icon_link", "リンク"));
+    await new Promise((r) => setTimeout(r, 0));
+    return nav;
+  }
+
+  it("項目が後から入ったときにも呼ぶ", async () => {
+    const cb = vi.fn();
+    const observer = observeActionNavs(cb);
+    const nav = await addEmptyNavThenItems();
+    observer.disconnect();
+
+    expect(cb).toHaveBeenCalledWith(nav);
+    expect(cb.mock.calls.at(-1)?.[0]).toBe(nav);
+    expect(nav.children).toHaveLength(3);
+  });
+
+  it("最初のホバーでもmyボタンが付く（2回呼ばれても1つだけ）", async () => {
+    const observer = observeActionNavs(injectMyTaskButton);
+    const nav = await addEmptyNavThenItems();
+    injectMyTaskButton(nav);
+    observer.disconnect();
+
+    const labels = Array.from(nav.children).map((el) => el.textContent?.trim());
+    expect(labels).toEqual(["返信", "タスク", "my", "リンク"]);
   });
 });

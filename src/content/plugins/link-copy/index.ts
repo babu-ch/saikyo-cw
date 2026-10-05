@@ -1,5 +1,5 @@
 import type { CwPlugin } from "../types";
-import { observeDOM } from "../../../shared/mutation-observer";
+import { observeActionNavs } from "../../../shared/mutation-observer";
 import { CW } from "../../../shared/chatwork-selectors";
 import { CW_BASE_URL } from "../../../shared/constants";
 import { showToast } from "../../../shared/toast";
@@ -65,7 +65,7 @@ export const linkCopyPlugin: CwPlugin = {
     defaultEnabled: false,
   },
   init() {
-    observer = observeDOM(CW.MESSAGE_ACTION_NAV, injectLinkCopyButton);
+    observer = observeActionNavs(injectLinkCopyButton);
   },
   destroy() {
     observer?.disconnect();
