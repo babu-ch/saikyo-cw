@@ -13,6 +13,7 @@ import { chatExportPlugin } from "./plugins/chat-export";
 import { replyThreadPlugin } from "./plugins/reply-thread";
 import { quickDeletePlugin } from "./plugins/quick-delete";
 import { linkCopyPlugin } from "./plugins/link-copy";
+import { toListResizePlugin } from "./plugins/to-list-resize";
 
 const ALL_PLUGINS: CwPlugin[] = [
   inputToolsPlugin,
@@ -28,6 +29,7 @@ const ALL_PLUGINS: CwPlugin[] = [
   replyThreadPlugin,
   quickDeletePlugin,
   linkCopyPlugin,
+  toListResizePlugin,
 ];
 
 const activePlugins = new Map<string, CwPlugin>();

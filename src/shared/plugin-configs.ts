@@ -88,4 +88,11 @@ export const PLUGIN_CONFIGS: PluginConfig[] = [
       "メッセージのアクションメニューの「リンク」の隣に「リンクをコピー」ボタンを追加。ワンクリックでメッセージへのリンクをクリップボードにコピー（純正の「リンク」は入力欄に挿入される）。",
     defaultEnabled: false,
   },
+  {
+    id: "to-list-resize",
+    name: "TO一覧の高さ調整",
+    description:
+      "TOのメンバー一覧の上端をドラッグして縦に広げられる。広げた高さは次から覚えておく（上端のダブルクリックで元の高さに戻す）。",
+    defaultEnabled: true,
+  },
 ];
