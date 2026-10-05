@@ -44,14 +44,14 @@ describe("injectLinkCopyButton", () => {
     });
   });
 
-  it("「リンク」の右隣にコピーアイコンの「URL」ボタンを追加する", () => {
+  it("「リンク」の右隣にコピーアイコンの「リンクをコピー」ボタンを追加する", () => {
     const nav = setupMessage();
     injectLinkCopyButton(nav);
 
     const labels = Array.from(nav.querySelectorAll(":scope > li")).map(
       (li) => li.textContent?.trim(),
     );
-    expect(labels).toEqual(["タスク", "リンク", "URL", ""]);
+    expect(labels).toEqual(["タスク", "リンク", "リンクをコピー", ""]);
     const btn = nav.querySelector(".scw-link-copy__btn")!;
     expect(btn.querySelector("use")?.getAttribute("href")).toBe("#icon_copy");
   });

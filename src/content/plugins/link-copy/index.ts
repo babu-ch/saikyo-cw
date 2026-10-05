@@ -32,7 +32,7 @@ async function copyMessageLink(actionNav: Element): Promise<void> {
   }
 }
 
-// 純正の「リンク」はURLを入力欄に挿入するだけなので、その隣にクリップボードへコピーするボタンを置く
+// 純正の「リンク」はリンクを入力欄に挿入するだけなので、その隣にクリップボードへコピーするボタンを置く
 export function injectLinkCopyButton(actionNav: Element): void {
   if (actionNav.querySelector(`.${BTN_CLASS}`)) return;
 
@@ -45,7 +45,7 @@ export function injectLinkCopyButton(actionNav: Element): void {
   cloned.querySelector("use")?.setAttribute("href", "#icon_copy");
   const label = cloned.querySelector(".actionLabel");
   if (label) {
-    label.textContent = "URL";
+    label.textContent = "リンクをコピー";
   }
   cloned.querySelector("button")?.setAttribute("title", "メッセージのリンクをコピー");
   linkLi.insertAdjacentElement("afterend", cloned);
@@ -61,7 +61,7 @@ export const linkCopyPlugin: CwPlugin = {
   config: {
     id: "link-copy",
     name: "リンクコピー",
-    description: "メッセージのアクションメニューに「URL」ボタンを追加し、ワンクリックでメッセージへのリンクをクリップボードにコピー",
+    description: "メッセージのアクションメニューに「リンクをコピー」ボタンを追加し、ワンクリックでメッセージへのリンクをクリップボードにコピー",
     defaultEnabled: false,
   },
   init() {
