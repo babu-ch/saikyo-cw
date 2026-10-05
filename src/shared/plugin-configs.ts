@@ -81,4 +81,11 @@ export const PLUGIN_CONFIGS: PluginConfig[] = [
     defaultEnabled: false,
     requiresApiKey: true,
   },
+  {
+    id: "link-copy",
+    name: "リンクコピー",
+    description:
+      "メッセージのアクションメニューの「リンク」の隣に「リンクをコピー」ボタンを追加。ワンクリックでメッセージへのリンクをクリップボードにコピー（純正の「リンク」は入力欄に挿入される）。",
+    defaultEnabled: false,
+  },
 ];
