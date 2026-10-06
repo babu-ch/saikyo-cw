@@ -53,3 +53,23 @@ export function waitFor<T>(find: () => T | null, timeout = 1000): Promise<T | nu
     observer.observe(document.body, { childList: true, subtree: true });
   });
 }
+
+/**
+ * trigger() の後に新しく現れた要素だけを待つ。見つからないままtimeoutしたらnull。
+ * trigger() の前から同じ形の要素が残っていても（別のメッセージのポップアップなど）取り違えない。
+ * CWのポップアップは開くたびに新しい要素として描画されるので、前からあるものは今回開いたものではない。
+ */
+export function waitForNew(
+  findAll: () => Iterable<Element>,
+  trigger: () => void,
+  timeout = 1000,
+): Promise<Element | null> {
+  const before = new Set(findAll());
+  trigger();
+  return waitFor(() => {
+    for (const el of findAll()) {
+      if (!before.has(el)) return el;
+    }
+    return null;
+  }, timeout);
+}

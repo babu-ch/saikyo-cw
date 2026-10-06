@@ -241,6 +241,33 @@ describe("actionMenuPlugin", () => {
     expect(document.querySelector<HTMLElement>(".somewhere")!.style.visibility).toBe("");
   });
 
+  it("押す前から別のメッセージの「その他」が残っていても、押した後に開いたものを押す", async () => {
+    await setPluginConfig("action-menu", { shownMoreItems: ["unread"] });
+    const nav = setupActionNav();
+    const clicked: string[] = [];
+    const appendMenu = (name: string): void => {
+      const root = document.createElement("div");
+      root.innerHTML = `<div><ul>
+        <li><button><svg><use href="#icon_copy"></use></svg>コピー</button></li>
+        <li><button><svg><use href="#icon_unread"></use></svg>未読</button></li>
+      </ul></div>`;
+      root.querySelectorAll("button").forEach((btn) =>
+        btn.addEventListener("click", () => clicked.push(`${name}:${btn.textContent}`)),
+      );
+      document.body.appendChild(root);
+    };
+    appendMenu("前から残っている");
+    nav.querySelector(".moreActionButton")!.addEventListener("click", () => {
+      setTimeout(() => appendMenu("今回開いた"), 5);
+    });
+    actionMenuPlugin.init();
+    await flush();
+
+    (nav.querySelector(".scw-action-menu__btn") as HTMLElement).click();
+    await new Promise((r) => setTimeout(r, 50));
+    expect(clicked).toEqual(["今回開いた:未読"]);
+  });
+
   it("出した項目を押すと「その他」を開いて同じ項目を押す", async () => {
     await setPluginConfig("action-menu", { shownMoreItems: ["unread"] });
     const nav = setupActionNav();

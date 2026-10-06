@@ -1,7 +1,7 @@
 import type { CwPlugin } from "../types";
 import { CW } from "../../../shared/chatwork-selectors";
 import { observeActionNavs } from "../../../shared/mutation-observer";
-import { waitFor } from "../../../shared/dom-helpers";
+import { waitForNew } from "../../../shared/dom-helpers";
 import { hideUntilClosed } from "../../../shared/cw-popups";
 import {
   ACTION_MENU_ITEMS,
@@ -103,23 +103,17 @@ function findMoreLi(actionNav: Element): HTMLElement | null {
   return actionNav.querySelector(".moreActionButton")?.closest("li") ?? null;
 }
 
-// 「その他」のメニューにはtestidがないので、未読ボタンを含むulで見分ける
-function findMoreMenu(): Element | null {
-  for (const use of document.querySelectorAll('use[href="#icon_unread"]')) {
-    // メッセージやアクションメニューの中（このプラグインが出した「未読」）は対象外
-    if (use.closest(CW.MESSAGE) || use.closest(CW.MESSAGE_ACTION_NAV)) continue;
-    const menu = use.closest("ul");
-    if (menu) return menu;
-  }
-  return null;
+// 隠す側と同じ条件で探す。アクションメニュー（このプラグインが出した「未読」がある）は MORE_MENU で除いている
+function findMoreMenus(): NodeListOf<Element> {
+  return document.querySelectorAll(MORE_MENU);
 }
 
 async function clickMoreMenuItem(actionNav: Element, icon: string): Promise<void> {
   const moreBtn = actionNav.querySelector<HTMLElement>(".moreActionButton");
   if (!moreBtn) return;
-  moreBtn.click();
 
-  const menu = await waitFor(findMoreMenu);
+  // 押す前から残っている「その他」は別のメッセージのものなので、押した後に開いたものだけを見る
+  const menu = await waitForNew(findMoreMenus, () => moreBtn.click());
   const target = menu?.querySelector(`use[href="#${icon}"]`)?.closest("button");
   // 見つからなければメニューを見せたままにして、手で選べるようにする
   if (!menu || !target) return;
