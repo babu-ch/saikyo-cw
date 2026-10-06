@@ -16,6 +16,10 @@ export const CW = {
   CHAT_SEND_BUTTON: "#_sendButton",
   ENTER_TO_SEND_CHECKBOX: 'input[value="enter-to-send"]',
   TO_BUTTON: "#_to",
+  /** TOを押すと開くメンバー一覧（TOボタンの上に開く） */
+  TO_LIST: "#_toList",
+  TO_LIST_ITEMS: "._cwLTList",
+  TO_LIST_SEARCH_AREA: "._cwLTSearchArea",
   ROOM_MEMBER_LIST: "#_memberList",
   ROOM_TITLE: "#_roomTitle",
   CHAT_CONTENT: "#_chatContent",

@@ -14,6 +14,7 @@ import { replyThreadPlugin } from "./plugins/reply-thread";
 import { quickDeletePlugin } from "./plugins/quick-delete";
 import { linkCopyPlugin } from "./plugins/link-copy";
 import { actionMenuPlugin } from "./plugins/action-menu";
+import { toListResizePlugin } from "./plugins/to-list-resize";
 
 const ALL_PLUGINS: CwPlugin[] = [
   inputToolsPlugin,
@@ -30,6 +31,7 @@ const ALL_PLUGINS: CwPlugin[] = [
   quickDeletePlugin,
   linkCopyPlugin,
   actionMenuPlugin,
+  toListResizePlugin,
 ];
 
 const activePlugins = new Map<string, CwPlugin>();

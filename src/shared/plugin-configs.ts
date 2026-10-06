@@ -99,4 +99,11 @@ export const PLUGIN_CONFIGS: PluginConfig[] = [
     defaultEnabled: false,
     managedBy: "action-menu",
   },
+  {
+    id: "to-list-resize",
+    name: "TO一覧の高さ調整",
+    description:
+      "TOのメンバー一覧の上端をドラッグして縦に広げられる。広げた高さは次から覚えておく（上端のダブルクリックで元の高さに戻す）。",
+    defaultEnabled: true,
+  },
 ];
