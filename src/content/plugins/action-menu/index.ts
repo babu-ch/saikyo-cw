@@ -1,7 +1,7 @@
 import type { CwPlugin } from "../types";
 import { CW } from "../../../shared/chatwork-selectors";
 import { observeActionNavs } from "../../../shared/mutation-observer";
-import { waitForNew } from "../../../shared/dom-helpers";
+import { sleep, waitForNew } from "../../../shared/dom-helpers";
 import { hideUntilClosed } from "../../../shared/cw-popups";
 import {
   ACTION_MENU_ITEMS,
@@ -119,6 +119,11 @@ async function clickMoreMenuItem(actionNav: Element, icon: string): Promise<void
   if (!menu || !target) return;
   hideUntilClosed(menu);
   target.click();
+
+  // 純正は「未読」や「削除」（確認ダイアログを出す）を押してもメニューを閉じない。
+  // 開いたままだと隠している1秒が過ぎたところで見えてしまうので、外側をクリックして閉じる（確認ダイアログは閉じない）
+  await sleep(0);
+  if (menu.isConnected) document.body.click();
 }
 
 // 純正のボタン（「その他」以外）をcloneしてアイコンとラベルを差し替える

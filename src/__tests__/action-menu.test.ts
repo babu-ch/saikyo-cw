@@ -241,6 +241,37 @@ describe("actionMenuPlugin", () => {
     expect(document.querySelector<HTMLElement>(".somewhere")!.style.visibility).toBe("");
   });
 
+  it("押してもメニューが閉じないとき（純正の「未読」など）は、外側をクリックして閉じる", async () => {
+    await setPluginConfig("action-menu", { shownMoreItems: ["unread"] });
+    const nav = setupActionNav();
+    const clicked: string[] = [];
+    let root: HTMLElement | null = null;
+    // 純正と同じく、項目を押しても閉じず、外側のクリックで閉じる
+    document.addEventListener("click", (e) => {
+      if (root && !root.contains(e.target as Node) && !nav.contains(e.target as Node)) root.remove();
+    });
+    nav.querySelector(".moreActionButton")!.addEventListener("click", () => {
+      setTimeout(() => {
+        root = document.createElement("div");
+        root.innerHTML = `<div><ul>
+          <li><button><svg><use href="#icon_copy"></use></svg>コピー</button></li>
+          <li><button><svg><use href="#icon_unread"></use></svg>未読</button></li>
+        </ul></div>`;
+        root.querySelectorAll("button").forEach((btn) =>
+          btn.addEventListener("click", () => clicked.push(btn.textContent ?? "")),
+        );
+        document.body.appendChild(root);
+      }, 5);
+    });
+    actionMenuPlugin.init();
+    await flush();
+
+    (nav.querySelector(".scw-action-menu__btn") as HTMLElement).click();
+    await new Promise((r) => setTimeout(r, 50));
+    expect(clicked).toEqual(["未読"]);
+    expect(root!.isConnected).toBe(false);
+  });
+
   it("押す前から別のメッセージの「その他」が残っていても、押した後に開いたものを押す", async () => {
     await setPluginConfig("action-menu", { shownMoreItems: ["unread"] });
     const nav = setupActionNav();
