@@ -1,7 +1,6 @@
 import type { CwPlugin } from "../types";
-import { observeDOM } from "../../../shared/mutation-observer";
-import { CW } from "../../../shared/chatwork-selectors";
-import { injectMyTaskButton, removeStyles } from "./task-injector";
+import { observeActionNavs } from "../../../shared/mutation-observer";
+import { BTN_CLASS, injectMyTaskButton, removeStyles } from "./task-injector";
 
 let observer: MutationObserver | null = null;
 
@@ -13,16 +12,14 @@ export const quickTaskPlugin: CwPlugin = {
     defaultEnabled: true,
   },
   init() {
-    observer = observeDOM(CW.MESSAGE_ACTION_NAV, (el) => {
-      injectMyTaskButton(el);
-    });
+    observer = observeActionNavs(injectMyTaskButton);
   },
   destroy() {
     observer?.disconnect();
     observer = null;
     removeStyles();
     document
-      .querySelectorAll(".scw-quick-task__btn")
+      .querySelectorAll(`.${BTN_CLASS}`)
       .forEach((el) => el.remove());
   },
 };

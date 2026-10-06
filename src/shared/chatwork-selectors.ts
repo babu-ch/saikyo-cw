@@ -7,6 +7,11 @@ export const CW = {
   MESSAGE: "[id^=_messageId]",
   MESSAGE_ACTION_NAV: ".messageActionNav",
   TASK_BUTTON: '[aria-label="タスク"]',
+  /** メッセージの下に出るリアクション（押すと同じリアクション／自分のものなら取り消し） */
+  REACTION_BADGE: '[data-testid="timeline_message_reaction_result-reaction"]',
+  /** 自分が押しているリアクション。testidでは見分けられないのでaria-labelで判定する */
+  MY_REACTION_BADGE:
+    '[data-testid="timeline_message_reaction_result-reaction"][aria-label="このリアクションを取り消す"]',
   CHAT_INPUT: "#_chatText",
   CHAT_SEND_BUTTON: "#_sendButton",
   ENTER_TO_SEND_CHECKBOX: 'input[value="enter-to-send"]',

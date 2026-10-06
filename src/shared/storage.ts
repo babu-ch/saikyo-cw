@@ -1,3 +1,5 @@
+import type { PluginConfig } from "../content/plugins/types";
+
 export interface PluginSettings {
   enabled: boolean;
   apiKey?: string;
@@ -5,6 +7,14 @@ export interface PluginSettings {
 }
 
 const PLUGIN_PREFIX = "plugin_";
+
+export function isPluginEnabled(
+  config: PluginConfig,
+  settings: Partial<PluginSettings> | undefined,
+): boolean {
+  if (config.alwaysOn) return true;
+  return settings?.enabled ?? config.defaultEnabled;
+}
 
 export async function getPluginSettings(): Promise<
   Record<string, PluginSettings>

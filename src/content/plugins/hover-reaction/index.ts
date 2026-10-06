@@ -1,29 +1,56 @@
 import type { CwPlugin } from "../types";
-import { observeDOM } from "../../../shared/mutation-observer";
-import { sleep } from "../../../shared/dom-helpers";
-import { getPluginConfig } from "../../../shared/storage";
-import { ALL_REACTIONS, type QuickReaction } from "../../../shared/reactions";
+import { CW } from "../../../shared/chatwork-selectors";
+import { observeActionNavs } from "../../../shared/mutation-observer";
+import { waitForNew } from "../../../shared/dom-helpers";
+import { hideUntilClosed } from "../../../shared/cw-popups";
+import {
+  getPluginConfig,
+  storageKeyForPlugin,
+  type PluginSettings,
+} from "../../../shared/storage";
+import { EMOTICON_BASE, resolveReactions, type Reaction } from "../../../shared/reactions";
 
 export type HoverReactionAlign = "right" | "left";
+/** below=メニューの下の段（従来）、inline=純正の「リアクション」の位置 */
+export type HoverReactionDisplay = "below" | "inline";
 
 const PLUGIN_ID = "hover-reaction";
-const ACTION_NAV_SELECTOR = "ul.messageActionNav";
+// メニューの下の段（従来）
 const ROW_CLASS = "scw-hover-reaction-row";
-const BTN_CLASS = "scw-hover-reaction-row__btn";
+const ROW_BTN_CLASS = "scw-hover-reaction-row__btn";
+const ROW_ICON_SIZE = 20;
+// 純正の「リアクション」の位置
+const BTN_CLASS = "scw-hover-reaction__btn";
+const ACTIVE_CLASS = "scw-hover-reaction__btn--active";
+const EMOTICON_ATTR = "data-scw-emoticon";
+const ICON_SIZE = 18;
 const STYLE_ID = "scw-hover-reaction-style";
-const MARKER = "__scw_hover_reaction";
-const EMOTICON_BASE = "https://assets.chatwork.com/images/emoticon2x/";
-const ICON_SIZE = 20;
+const QUICK_LIST = '[data-testid="reaction-list"]';
 
-interface HoverReactionConfig {
+export interface HoverReactionConfig {
+  /** 未設定なら従来どおりメニューの下の段 */
+  display?: HoverReactionDisplay;
+  /** メニューの下の段の寄せ */
   alignment?: HoverReactionAlign;
+  /** 並べるリアクション（emoticonのファイル名）。未設定ならDEFAULT_REACTIONS（従来の6種） */
+  reactions?: string[];
   stopAnimation?: boolean;
 }
 
-let observer: MutationObserver | null = null;
-let enabled = false;
+type StorageListener = (
+  changes: Record<string, chrome.storage.StorageChange>,
+  area: string,
+) => void;
 
-const STYLES = `
+let observer: MutationObserver | null = null;
+let badgeObserver: MutationObserver | null = null;
+let onStorageChanged: StorageListener | null = null;
+let enabled = false;
+// 設定の読み込み中にdestroy→initされたとき、古い読み込み結果を捨てるための世代
+let generation = 0;
+let config: HoverReactionConfig = {};
+
+const ROW_STYLES = `
   .${ROW_CLASS} {
     position: absolute;
     top: 100%;
@@ -38,7 +65,7 @@ const STYLES = `
     border-top: 1px solid rgba(127, 127, 127, 0.2);
   }
   .${ROW_CLASS} li { list-style: none; margin: 0; padding: 0; }
-  .${BTN_CLASS} {
+  .${ROW_BTN_CLASS} {
     display: inline-flex;
     align-items: center;
     justify-content: center;
@@ -50,58 +77,207 @@ const STYLES = `
     line-height: 0;
     color: inherit;
   }
-  .${BTN_CLASS}:hover {
+  .${ROW_BTN_CLASS}:hover {
     background-color: rgba(127, 127, 127, 0.18);
     border-color: rgba(127, 127, 127, 0.35);
   }
-  .${BTN_CLASS} canvas,
-  .${BTN_CLASS} img {
-    width: ${ICON_SIZE}px;
-    height: ${ICON_SIZE}px;
+  .${ROW_BTN_CLASS} canvas,
+  .${ROW_BTN_CLASS} img {
+    width: ${ROW_ICON_SIZE}px;
+    height: ${ROW_ICON_SIZE}px;
     display: block;
   }
 `;
 
-function injectStyles(): void {
-  if (document.getElementById(STYLE_ID)) return;
-  const style = document.createElement("style");
-  style.id = STYLE_ID;
-  style.textContent = STYLES;
-  document.head.appendChild(style);
-}
-
-function removeStyles(): void {
-  document.getElementById(STYLE_ID)?.remove();
-}
-
-function findReactionNavButton(actionNav: Element): HTMLElement | null {
-  const buttons = actionNav.querySelectorAll<HTMLElement>("li button");
-  for (const btn of buttons) {
-    const label = btn.querySelector(".actionLabel")?.textContent?.trim();
-    if (label === "リアクション") return btn;
+// 純正の「リアクション」はアイコンだけにして「もっと見る」として使う
+const INLINE_STYLES = `
+  ${CW.MESSAGE_ACTION_NAV} > li:not([class*="scw-"]):has(use[href="#icon_reaction"]) .actionLabel {
+    display: none;
   }
-  return null;
+  /* 純正ボタンの左右8pxの余白のままだと間延びするので詰める */
+  .${BTN_CLASS} button {
+    padding-left: 3px;
+    padding-right: 3px;
+  }
+  .${BTN_CLASS} .iconContainer {
+    width: auto;
+    height: auto;
+  }
+  .${BTN_CLASS} img,
+  .${BTN_CLASS} canvas {
+    width: ${ICON_SIZE}px;
+    height: ${ICON_SIZE}px;
+    display: block;
+  }
+  /* 自分が押しているリアクション。メッセージ下の自分のリアクションと同じ色にする */
+  .${ACTIVE_CLASS} button {
+    background-color: rgba(204, 223, 245, 0.5);
+    box-shadow: inset 0 0 0 1px rgb(46, 81, 144);
+    border-radius: 4px;
+  }
+`;
+
+function displayOf(c: HoverReactionConfig): HoverReactionDisplay {
+  return c.display === "inline" ? "inline" : "below";
 }
 
-async function sendReaction(actionNav: Element, label: string): Promise<void> {
-  const navBtn = findReactionNavButton(actionNav);
-  if (!navBtn) return;
-  navBtn.click();
+function applyStyles(css: string | null): void {
+  let style = document.getElementById(STYLE_ID);
+  if (css === null) {
+    style?.remove();
+    return;
+  }
+  if (!style) {
+    style = document.createElement("style");
+    style.id = STYLE_ID;
+    document.head.appendChild(style);
+  }
+  style.textContent = css;
+}
 
-  for (let i = 0; i < 20; i++) {
-    const list = document.querySelector('[data-testid="reaction-list"]');
-    if (list) {
-      const target = list.querySelector<HTMLElement>(
-        `button[aria-label="${label}"]`,
-      );
-      target?.click();
-      return;
+function findReactionLi(actionNav: Element): HTMLElement | null {
+  return (
+    actionNav
+      .querySelector(':scope > li:not([class*="scw-"]) use[href="#icon_reaction"]')
+      ?.closest("li") ?? null
+  );
+}
+
+// 小窓の6種はボタン名（aria-label）で、それ以外はemoticonの画像で押すボタンを見分ける
+function findReactionButton(list: Element, r: Reaction): HTMLElement | null {
+  if (r.label) {
+    const byLabel = list.querySelector<HTMLElement>(`button[aria-label="${r.label}"]`);
+    if (byLabel) return byLabel;
+  }
+  return (
+    list.querySelector(`img[src$="/${r.emoticon}"]`)?.closest("li")?.querySelector("button") ??
+    null
+  );
+}
+
+function findBadge(message: Element, emoticon: string): HTMLElement | null {
+  return (
+    message
+      .querySelector(`${CW.REACTION_BADGE} img[src$="/${emoticon}"]`)
+      ?.closest<HTMLElement>(CW.REACTION_BADGE) ?? null
+  );
+}
+
+// メッセージ下の自分のリアクションに合わせて、並べたボタンの押している状態を付け替える
+function updateButtonStates(message: Element): void {
+  for (const li of message.querySelectorAll<HTMLElement>(`.${BTN_CLASS}`)) {
+    const emoticon = li.getAttribute(EMOTICON_ATTR) ?? "";
+    const active = findBadge(message, emoticon)?.matches(CW.MY_REACTION_BADGE) ?? false;
+    li.classList.toggle(ACTIVE_CLASS, active);
+    li.querySelector("button")?.setAttribute("aria-pressed", String(active));
+  }
+}
+
+function containsBadge(node: Node): boolean {
+  return (
+    node instanceof Element &&
+    (node.matches(CW.REACTION_BADGE) || node.querySelector(CW.REACTION_BADGE) !== null)
+  );
+}
+
+// リアクションは純正の小窓やメッセージ下からも付け外しされるので、バッジの変化を見て追従する
+function observeBadges(): MutationObserver {
+  const mo = new MutationObserver((mutations) => {
+    const messages = new Set<Element>();
+    for (const m of mutations) {
+      const changed =
+        m.type === "attributes"
+          ? (m.target as Element).matches(CW.REACTION_BADGE)
+          : [...m.addedNodes, ...m.removedNodes].some(containsBadge);
+      const message = changed ? (m.target as Element).closest(CW.MESSAGE) : null;
+      if (message) messages.add(message);
     }
-    await sleep(20);
-  }
+    messages.forEach(updateButtonStates);
+  });
+  mo.observe(document.body, {
+    childList: true,
+    subtree: true,
+    attributes: true,
+    attributeFilter: ["aria-label"],
+  });
+  return mo;
 }
 
-function buildIcon(r: QuickReaction, stopAnimation: boolean): HTMLElement {
+// 小窓・一覧は開くたびに新しい要素として描画されるので、waitForNew で押した後に現れたものだけを見る
+function findQuickLists(): NodeListOf<Element> {
+  return document.querySelectorAll(QUICK_LIST);
+}
+
+// 「すべてのリアクション」一覧にはtestidがないので、画像付きボタンが大量に並ぶulで見分ける
+function findAllLists(): Element[] {
+  return Array.from(document.querySelectorAll("ul")).filter(
+    (ul) =>
+      !ul.closest(CW.MESSAGE) &&
+      !ul.closest(CW.MESSAGE_ACTION_NAV) &&
+      ul.querySelectorAll(":scope > li > button > img").length >= 20,
+  );
+}
+
+function findAllButton(quickList: Element): HTMLElement | null {
+  return quickList.querySelector('use[href="#icon_more"]')?.closest("button") ?? null;
+}
+
+// 純正の「リアクション」から小窓（なければ「すべてのリアクション」）を開いて押す
+async function sendViaPicker(actionNav: Element, r: Reaction): Promise<void> {
+  const navBtn = findReactionLi(actionNav)?.querySelector("button");
+  if (!navBtn) return;
+
+  const quickList = await waitForNew(findQuickLists, () => navBtn.click());
+  if (!quickList) return;
+
+  const quickTarget = findReactionButton(quickList, r);
+  if (quickTarget) {
+    hideUntilClosed(quickList);
+    quickTarget.click();
+    return;
+  }
+
+  const allBtn = findAllButton(quickList);
+  if (!allBtn) return;
+  hideUntilClosed(quickList);
+
+  const allList = await waitForNew(findAllLists, () => allBtn.click());
+  const target = allList ? findReactionButton(allList, r) : null;
+  // 見つからなければ一覧を見せたままにして、手で選べるようにする
+  if (!allList || !target) return;
+  hideUntilClosed(allList);
+  target.click();
+}
+
+async function toggleReaction(actionNav: Element, r: Reaction): Promise<void> {
+  // メッセージ下に同じリアクションがあればそれを押す（自分のなら取り消し、他の人のなら同じリアクション）
+  const badge = findBadge(actionNav.closest(CW.MESSAGE) ?? actionNav, r.emoticon);
+  if (badge) {
+    badge.click();
+    return;
+  }
+  await sendViaPicker(actionNav, r);
+}
+
+// よく使うものは並んでいるので、純正のアイコンを押したら小窓を飛ばして全種類の一覧を開く
+async function openAllReactions(e: Event): Promise<void> {
+  // sendViaPicker が押すとき（isTrusted=false）は対象外
+  if (!e.isTrusted) return;
+  // 純正のクリックの処理中で、小窓はまだ描画されていない
+  const quickList = await waitForNew(findQuickLists, () => {});
+  if (!quickList) return;
+  const allBtn = findAllButton(quickList);
+  if (!allBtn) return;
+  // 小窓は「すべてのリアクションを見る」を押すとDOMから外れ、一覧は別の箱に描画されるので、隠れるのは小窓だけ
+  hideUntilClosed(quickList);
+  allBtn.click();
+}
+
+function onNativeReactionClick(e: Event): void {
+  void openAllReactions(e);
+}
+
+function buildIcon(r: Reaction, stopAnimation: boolean, size: number): HTMLElement {
   const src = `${EMOTICON_BASE}${r.emoticon}`;
 
   if (!stopAnimation) {
@@ -114,15 +290,15 @@ function buildIcon(r: QuickReaction, stopAnimation: boolean): HTMLElement {
 
   // gifを<canvas>に描画して静止画化（ループが止まる）
   const canvas = document.createElement("canvas");
-  canvas.width = ICON_SIZE;
-  canvas.height = ICON_SIZE;
+  canvas.width = size;
+  canvas.height = size;
   canvas.setAttribute("aria-label", r.describe);
 
   const img = new Image();
   img.src = src;
   img.onload = () => {
     const ctx = canvas.getContext("2d");
-    ctx?.drawImage(img, 0, 0, ICON_SIZE, ICON_SIZE);
+    ctx?.drawImage(img, 0, 0, size, size);
   };
   img.onerror = () => {
     const fallback = document.createElement("img");
@@ -133,32 +309,29 @@ function buildIcon(r: QuickReaction, stopAnimation: boolean): HTMLElement {
   return canvas;
 }
 
-function buildRow(
-  actionNav: Element,
-  align: HoverReactionAlign,
-  stopAnimation: boolean,
-): HTMLElement {
+function buildRow(actionNav: Element, reactions: Reaction[]): HTMLElement {
   const row = document.createElement("ul");
   row.className = ROW_CLASS;
   row.setAttribute("role", "toolbar");
-  if (align === "left") {
+  if (config.alignment === "left") {
     row.style.left = "0";
   } else {
     row.style.right = "0";
   }
 
-  for (const r of ALL_REACTIONS) {
+  for (const r of reactions) {
+    const name = r.label ?? r.describe;
     const li = document.createElement("li");
     const btn = document.createElement("button");
     btn.type = "button";
-    btn.className = BTN_CLASS;
-    btn.setAttribute("aria-label", r.label);
-    btn.title = r.label;
-    btn.appendChild(buildIcon(r, stopAnimation));
+    btn.className = ROW_BTN_CLASS;
+    btn.setAttribute("aria-label", name);
+    btn.title = name;
+    btn.appendChild(buildIcon(r, config.stopAnimation ?? false, ROW_ICON_SIZE));
     btn.addEventListener("click", (e) => {
       e.stopPropagation();
       e.preventDefault();
-      sendReaction(actionNav, r.label);
+      void sendViaPicker(actionNav, r);
     });
     li.appendChild(btn);
     row.appendChild(li);
@@ -166,42 +339,126 @@ function buildRow(
   return row;
 }
 
-async function injectRow(actionNav: Element): Promise<void> {
+// 純正の「リアクション」をcloneして、アイコンを絵文字に差し替える
+function buildButton(reactionLi: HTMLElement, actionNav: Element, r: Reaction): HTMLElement {
+  const li = reactionLi.cloneNode(true) as HTMLElement;
+  li.classList.add(BTN_CLASS);
+  li.setAttribute(EMOTICON_ATTR, r.emoticon);
+  li.querySelector(".actionLabel")?.remove();
+
+  const icon = buildIcon(r, config.stopAnimation ?? false, ICON_SIZE);
+  const btn = li.querySelector("button");
+  const iconContainer = li.querySelector(".iconContainer");
+  if (iconContainer) {
+    iconContainer.replaceChildren(icon);
+  } else {
+    btn?.replaceChildren(icon);
+  }
+  btn?.setAttribute("aria-label", r.describe);
+  btn?.setAttribute("title", r.describe);
+
+  li.addEventListener("click", (e) => {
+    e.stopPropagation();
+    e.preventDefault();
+    void toggleReaction(actionNav, r);
+  });
+  return li;
+}
+
+function injectRow(actionNav: Element): void {
+  if (actionNav.nextElementSibling?.classList.contains(ROW_CLASS)) return;
+  const reactions = resolveReactions(config.reactions);
+  if (reactions.length === 0) return;
+  actionNav.insertAdjacentElement("afterend", buildRow(actionNav, reactions));
+}
+
+function injectInline(actionNav: Element): void {
+  if (actionNav.querySelector(`.${BTN_CLASS}`)) return;
+  const reactionLi = findReactionLi(actionNav);
+  if (!reactionLi) return;
+  const reactions = resolveReactions(config.reactions);
+  if (reactions.length === 0) return;
+
+  for (const r of reactions) {
+    reactionLi.insertAdjacentElement("beforebegin", buildButton(reactionLi, actionNav, r));
+  }
+  // 同じ関数なので何度addしても1回だけ
+  reactionLi.querySelector("button")?.addEventListener("click", onNativeReactionClick);
+  updateButtonStates(actionNav.closest(CW.MESSAGE) ?? actionNav);
+}
+
+export function injectReactionButtons(actionNav: Element): void {
   if (!enabled) return;
-  const rec = actionNav as unknown as Record<string, unknown>;
-  if (rec[MARKER]) return;
-  rec[MARKER] = true;
+  if (displayOf(config) === "inline") {
+    injectInline(actionNav);
+  } else {
+    injectRow(actionNav);
+  }
+}
 
-  const config = (await getPluginConfig<HoverReactionConfig>(PLUGIN_ID)) ?? {};
-  const align: HoverReactionAlign = config.alignment ?? "right";
-  const stopAnimation = config.stopAnimation ?? false;
-  if (!enabled || !actionNav.isConnected) return;
+function removeReactionButtons(): void {
+  document.querySelectorAll(`.${ROW_CLASS}, .${BTN_CLASS}`).forEach((el) => el.remove());
+  document.querySelectorAll(CW.MESSAGE_ACTION_NAV).forEach((nav) => {
+    findReactionLi(nav)?.querySelector("button")?.removeEventListener("click", onNativeReactionClick);
+  });
+}
 
-  actionNav.insertAdjacentElement(
-    "afterend",
-    buildRow(actionNav, align, stopAnimation),
-  );
+function applyConfig(next: HoverReactionConfig): void {
+  config = next;
+  removeReactionButtons();
+  badgeObserver?.disconnect();
+  badgeObserver = null;
+
+  const hasReactions = resolveReactions(config.reactions).length > 0;
+  if (displayOf(config) === "inline") {
+    // 並べるものがなければ純正の「リアクション」も元のまま
+    applyStyles(hasReactions ? INLINE_STYLES : null);
+    if (hasReactions) badgeObserver = observeBadges();
+  } else {
+    applyStyles(ROW_STYLES);
+  }
+  document.querySelectorAll(CW.MESSAGE_ACTION_NAV).forEach(injectReactionButtons);
 }
 
 export const hoverReactionPlugin: CwPlugin = {
   config: {
     id: PLUGIN_ID,
     name: "ホバーリアクション",
-    description: "ホバーメニューの下にリアクション絵文字をワンクリック送信できるボタンを表示",
+    description: "よく使うリアクションをアクションメニューに並べて、ワンクリックで送る",
     defaultEnabled: true,
   },
   init() {
     enabled = true;
-    injectStyles();
-    observer = observeDOM(ACTION_NAV_SELECTOR, (el) => {
-      injectRow(el);
+    const current = ++generation;
+    void getPluginConfig<HoverReactionConfig>(PLUGIN_ID).then((loaded) => {
+      if (!enabled || current !== generation) return;
+      applyConfig(loaded ?? {});
+      observer = observeActionNavs(injectReactionButtons);
     });
+
+    onStorageChanged = (changes, area) => {
+      if (!enabled || area !== "sync") return;
+      const change = changes[storageKeyForPlugin(PLUGIN_ID)];
+      if (!change) return;
+      const next = (change.newValue as PluginSettings | undefined)?.config as
+        | HoverReactionConfig
+        | undefined;
+      applyConfig(next ?? {});
+    };
+    chrome.storage.onChanged.addListener(onStorageChanged);
   },
   destroy() {
     enabled = false;
+    generation++;
     observer?.disconnect();
     observer = null;
-    removeStyles();
-    document.querySelectorAll(`.${ROW_CLASS}`).forEach((el) => el.remove());
+    badgeObserver?.disconnect();
+    badgeObserver = null;
+    if (onStorageChanged) {
+      chrome.storage.onChanged.removeListener(onStorageChanged);
+      onStorageChanged = null;
+    }
+    removeReactionButtons();
+    applyStyles(null);
   },
 };

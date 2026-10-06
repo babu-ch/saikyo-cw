@@ -1,5 +1,5 @@
 import type { CwPlugin } from "./plugins/types";
-import { getPluginSettings, storageKeyForPlugin } from "../shared/storage";
+import { getPluginSettings, isPluginEnabled, storageKeyForPlugin } from "../shared/storage";
 import { inputToolsPlugin } from "./plugins/input-tools";
 import { muteButtonPlugin } from "./plugins/mute-button";
 import { quickTaskPlugin } from "./plugins/quick-task";
@@ -13,6 +13,7 @@ import { chatExportPlugin } from "./plugins/chat-export";
 import { replyThreadPlugin } from "./plugins/reply-thread";
 import { quickDeletePlugin } from "./plugins/quick-delete";
 import { linkCopyPlugin } from "./plugins/link-copy";
+import { actionMenuPlugin } from "./plugins/action-menu";
 import { toListResizePlugin } from "./plugins/to-list-resize";
 
 const ALL_PLUGINS: CwPlugin[] = [
@@ -29,6 +30,7 @@ const ALL_PLUGINS: CwPlugin[] = [
   replyThreadPlugin,
   quickDeletePlugin,
   linkCopyPlugin,
+  actionMenuPlugin,
   toListResizePlugin,
 ];
 
@@ -38,8 +40,7 @@ export async function startPlugins(): Promise<void> {
   const settings = await getPluginSettings();
 
   for (const plugin of ALL_PLUGINS) {
-    const enabled = settings[plugin.config.id]?.enabled ?? plugin.config.defaultEnabled;
-    if (enabled) {
+    if (isPluginEnabled(plugin.config, settings[plugin.config.id])) {
       plugin.init();
       activePlugins.set(plugin.config.id, plugin);
     }
@@ -53,7 +54,7 @@ export async function startPlugins(): Promise<void> {
       if (!change) continue;
 
       const wasEnabled = activePlugins.has(plugin.config.id);
-      const nowEnabled = change.newValue?.enabled ?? plugin.config.defaultEnabled;
+      const nowEnabled = isPluginEnabled(plugin.config, change.newValue);
 
       if (wasEnabled && !nowEnabled) {
         plugin.destroy();

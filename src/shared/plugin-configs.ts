@@ -14,10 +14,19 @@ export const PLUGIN_CONFIGS: PluginConfig[] = [
     defaultEnabled: true,
   },
   {
+    id: "action-menu",
+    name: "アクションメニュー",
+    description:
+      "メッセージにhoverすると出るメニューの項目を選べます。使わない純正の項目を隠したり、拡張のボタン（ホバーリアクション・my・リンクをコピー）を出したりできます。",
+    defaultEnabled: true,
+    alwaysOn: true,
+  },
+  {
     id: "quick-task",
     name: "クイックタスク",
     description: "メッセージにmy taskボタンを追加。共通APIキーが設定されていればタスクAPI経由で登録（画面遷移なし）、未設定時はマイチャットへの画面遷移＆DOM操作で登録します",
     defaultEnabled: true,
+    managedBy: "action-menu",
   },
   {
     id: "mention-group",
@@ -35,8 +44,9 @@ export const PLUGIN_CONFIGS: PluginConfig[] = [
     id: "hover-reaction",
     name: "ホバーリアクション",
     description:
-      "メッセージのアクションメニューの下に、よく使うリアクションをワンクリック送信できるボタンを表示",
+      "よく使うリアクションをアクションメニューに並べてワンクリックで送る。並べる場所はメニューの下の段か「リアクション」の位置から選べる",
     defaultEnabled: true,
+    managedBy: "action-menu",
   },
   {
     id: "mention-autocomplete",
@@ -87,6 +97,7 @@ export const PLUGIN_CONFIGS: PluginConfig[] = [
     description:
       "メッセージのアクションメニューの「リンク」の隣に「リンクをコピー」ボタンを追加。ワンクリックでメッセージへのリンクをクリップボードにコピー（純正の「リンク」は入力欄に挿入される）。",
     defaultEnabled: false,
+    managedBy: "action-menu",
   },
   {
     id: "to-list-resize",

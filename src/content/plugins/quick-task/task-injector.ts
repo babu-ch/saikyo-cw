@@ -5,7 +5,7 @@ import { getApiToken, getPluginConfig, setPluginConfig } from "../../../shared/s
 import { showToast } from "../../../shared/toast";
 
 const PLUGIN_ID = "quick-task";
-const MARKER = "__scw_quick_task";
+export const BTN_CLASS = "scw-quick-task__btn";
 
 let cachedMyAccountId: string | null = null;
 
@@ -381,8 +381,7 @@ async function executeTask(message: Element, mode: TaskMode, deadlineDays: numbe
 }
 
 export function injectMyTaskButton(actionNav: Element): void {
-  if ((actionNav as unknown as Record<string, unknown>)[MARKER]) return;
-  (actionNav as unknown as Record<string, unknown>)[MARKER] = true;
+  if (actionNav.querySelector(`.${BTN_CLASS}`)) return;
 
   // 既存の「タスク」ボタンを探す
   const lis = actionNav.querySelectorAll(":scope > li");
@@ -393,6 +392,7 @@ export function injectMyTaskButton(actionNav: Element): void {
 
   // 「タスク」ボタンをcloneしてラベルを「my」に変更
   const cloned = taskLi.cloneNode(true) as HTMLElement;
+  cloned.classList.add(BTN_CLASS);
   const label = cloned.querySelector(".actionLabel");
   if (label) {
     label.textContent = "my";
