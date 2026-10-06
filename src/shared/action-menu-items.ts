@@ -35,6 +35,7 @@ export type ActionMenuItem = NativeActionMenuItem | PluginActionMenuItem | MoreA
 export const ACTION_MENU_ITEMS: ActionMenuItem[] = [
   { type: "native", id: "reply", label: "返信", description: "他の人の発言に出る", icon: "icon_reply" },
   { type: "native", id: "edit", label: "編集", description: "自分の発言に出る", icon: "icon_edit" },
+  { type: "plugin", id: "hover-reaction", label: "ホバーリアクション", description: "よく使うリアクションをワンクリックで送る" },
   { type: "native", id: "reaction", label: "リアクション", description: "リアクションの一覧を開く", icon: "icon_reaction" },
   { type: "native", id: "quote", label: "引用", description: "入力欄に引用を挿入", icon: "icon_quote" },
   { type: "native", id: "bookmark", label: "ブックマーク", description: "メッセージをブックマーク", icon: "icon_bookmark" },
