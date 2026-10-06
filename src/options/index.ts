@@ -5,6 +5,7 @@ import {
   ALL_BUTTON_METAS,
   getDefaultEnabledIds,
 } from "../shared/input-tools-buttons";
+import { ACTION_MENU_ITEMS, type ActionMenuItem } from "../shared/action-menu-items";
 import {
   getPluginSettings,
   getPluginConfig,
@@ -12,6 +13,7 @@ import {
   setPluginConfig,
   getApiToken,
   setApiToken,
+  isPluginEnabled,
   type PluginSettings,
 } from "../shared/storage";
 
@@ -35,7 +37,13 @@ function createPluginCard(
   const card = document.createElement("div");
   card.className = "plugin-card";
 
-  const enabled = settings?.enabled ?? config.defaultEnabled;
+  const enabled = isPluginEnabled(config, settings);
+  const toggle = config.alwaysOn
+    ? ""
+    : `<label class="toggle">
+      <input type="checkbox" ${enabled ? "checked" : ""} data-plugin-id="${escapeHtml(config.id)}">
+      <span class="toggle-slider"></span>
+    </label>`;
 
   card.innerHTML = `
     <div class="plugin-info">
@@ -45,16 +53,13 @@ function createPluginCard(
       </div>
       <div class="plugin-description">${escapeHtml(config.description)}</div>
     </div>
-    <label class="toggle">
-      <input type="checkbox" ${enabled ? "checked" : ""} data-plugin-id="${escapeHtml(config.id)}">
-      <span class="toggle-slider"></span>
-    </label>
+    ${toggle}
   `;
 
   const checkbox = card.querySelector<HTMLInputElement>(
     '.toggle input[type="checkbox"]',
-  )!;
-  checkbox.addEventListener("change", async () => {
+  );
+  checkbox?.addEventListener("change", async () => {
     await setPluginEnabled(config.id, checkbox.checked);
     showStatus(`${config.name} を${checkbox.checked ? "有効" : "無効"}にしました`);
   });
@@ -111,6 +116,103 @@ async function createInputToolsConfig(): Promise<HTMLElement> {
   return section;
 }
 
+// ===== アクションメニュー設定 =====
+async function createActionMenuConfig(
+  settings: Record<string, PluginSettings>,
+): Promise<HTMLElement> {
+  const section = document.createElement("div");
+
+  const config = await getPluginConfig<{
+    hiddenItems?: string[];
+    shownMoreItems?: string[];
+  }>("action-menu");
+  const hiddenItems = new Set(config?.hiddenItems ?? []);
+  const shownMoreItems = new Set(config?.shownMoreItems ?? []);
+
+  function isShown(item: ActionMenuItem): boolean | null {
+    if (item.type === "native") return !hiddenItems.has(item.id);
+    if (item.type === "more") return shownMoreItems.has(item.id);
+    const pluginConfig = PLUGIN_CONFIGS.find((c) => c.id === item.id);
+    return pluginConfig ? isPluginEnabled(pluginConfig, settings[item.id]) : null;
+  }
+
+  async function saveItems(): Promise<void> {
+    const existing = (await getPluginConfig<Record<string, unknown>>("action-menu")) ?? {};
+    await setPluginConfig("action-menu", {
+      ...existing,
+      hiddenItems: Array.from(hiddenItems),
+      shownMoreItems: Array.from(shownMoreItems),
+    });
+  }
+
+  const typeLabels: Record<ActionMenuItem["type"], string> = {
+    native: "純正",
+    plugin: "拡張",
+    more: "その他から",
+  };
+
+  section.innerHTML = `
+    <div class="action-menu-note">
+      チェックを外した項目はメニューに出なくなります。「その他から」の項目はチェックすると「その他（…）」の手前に出て、「その他」の中からは消えます。中身が空になった「その他」は表示しません（他の人の発言はコピー・未読、自分の発言はそれに削除を加えた3つを出したとき）。
+    </div>
+    <div class="button-config"></div>
+  `;
+
+  const container = section.querySelector(".button-config")!;
+
+  for (const item of ACTION_MENU_ITEMS) {
+    const shown = isShown(item);
+    if (shown === null) continue;
+
+    const label = document.createElement("label");
+    label.className = "button-config-item";
+    label.innerHTML = `
+      <input type="checkbox" ${shown ? "checked" : ""}>
+      <span class="button-config-label">${escapeHtml(item.label)}</span>
+      <span class="button-config-desc">${escapeHtml(item.description)}</span>
+      <span class="button-config-type">${escapeHtml(typeLabels[item.type])}</span>
+    `;
+
+    const cb = label.querySelector<HTMLInputElement>("input")!;
+    cb.addEventListener("change", async () => {
+      if (item.type === "native") {
+        if (cb.checked) {
+          hiddenItems.delete(item.id);
+        } else {
+          hiddenItems.add(item.id);
+        }
+        await saveItems();
+      } else if (item.type === "more") {
+        if (cb.checked) {
+          shownMoreItems.add(item.id);
+        } else {
+          shownMoreItems.delete(item.id);
+        }
+        await saveItems();
+      } else {
+        // 拡張のボタンは、ボタンを追加するプラグイン自体をOn/Offする
+        await setPluginEnabled(item.id, cb.checked);
+      }
+      showStatus(`「${item.label}」を${cb.checked ? "表示" : "非表示に"}しました`);
+    });
+
+    container.appendChild(label);
+
+    const subSettings =
+      item.id === "quick-task"
+        ? createCollapsible("タスク設定", await createQuickTaskConfig())
+        : null;
+    if (subSettings) {
+      const sub = document.createElement("div");
+      sub.className = "action-menu-sub";
+      sub.appendChild(subSettings);
+      container.appendChild(sub);
+    }
+  }
+
+  return section;
+}
+
 async function createQuickTaskConfig(): Promise<HTMLElement> {
   const section = document.createElement("div");
 
@@ -148,6 +250,9 @@ async function createQuickTaskConfig(): Promise<HTMLElement> {
              placeholder="3"
              value="${escapeHtml(String(currentDeadline))}">
       <div style="font-size: 11px; color: #888; margin-top: 4px;">0=今日、3=3日後、-1で期限なし</div>
+    </div>
+    <div style="font-size: 11px; color: #888; margin-top: 12px;">
+      共通APIトークンを設定するとタスクAPI経由で登録します（画面遷移なし）。未設定時はマイチャットへ画面遷移して登録します。
     </div>
   `;
 
@@ -876,10 +981,7 @@ async function createHoverReactionConfig(): Promise<HTMLElement> {
   return section;
 }
 
-function appendCollapsible(card: HTMLElement, label: string, content: HTMLElement): void {
-  const pluginInfo = card.querySelector(".plugin-info");
-  if (!pluginInfo) return;
-
+function createCollapsible(label: string, content: HTMLElement): DocumentFragment {
   const toggle = document.createElement("button");
   toggle.className = "plugin-config-toggle";
   toggle.innerHTML = `<span class="arrow">&#9654;</span> ${escapeHtml(label)}`;
@@ -893,8 +995,13 @@ function appendCollapsible(card: HTMLElement, label: string, content: HTMLElemen
     toggle.classList.toggle("open", isOpen);
   });
 
-  pluginInfo.appendChild(toggle);
-  pluginInfo.appendChild(section);
+  const fragment = document.createDocumentFragment();
+  fragment.append(toggle, section);
+  return fragment;
+}
+
+function appendCollapsible(card: HTMLElement, label: string, content: HTMLElement): void {
+  card.querySelector(".plugin-info")?.appendChild(createCollapsible(label, content));
 }
 
 async function renderPluginCard(
@@ -908,8 +1015,8 @@ async function renderPluginCard(
   if (config.id === "input-tools") {
     appendCollapsible(card, "ボタン設定", await createInputToolsConfig());
   }
-  if (config.id === "quick-task") {
-    appendCollapsible(card, "タスク設定", await createQuickTaskConfig());
+  if (config.id === "action-menu") {
+    appendCollapsible(card, "表示する項目", await createActionMenuConfig(settings));
   }
   if (config.id === "mention-group") {
     appendCollapsible(card, "グループ管理", await createMentionGroupConfig());
@@ -934,9 +1041,11 @@ async function render(): Promise<void> {
   if (!container) return;
 
   const settings = await getPluginSettings();
+  // managedBy のプラグインは管理元のカードの中でOn/Offする
+  const cardConfigs = PLUGIN_CONFIGS.filter((c) => !c.managedBy);
 
   // APIキー不要なプラグインを先に描画
-  for (const config of PLUGIN_CONFIGS.filter((c) => !c.requiresApiKey)) {
+  for (const config of cardConfigs.filter((c) => !c.requiresApiKey)) {
     await renderPluginCard(container, config, settings);
   }
 
@@ -944,7 +1053,7 @@ async function render(): Promise<void> {
   container.appendChild(await createApiTokenSection());
 
   // APIキー必須プラグインを最後に描画
-  for (const config of PLUGIN_CONFIGS.filter((c) => c.requiresApiKey)) {
+  for (const config of cardConfigs.filter((c) => c.requiresApiKey)) {
     await renderPluginCard(container, config, settings);
   }
 }

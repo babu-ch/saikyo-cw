@@ -10,11 +10,36 @@ import {
   storageKeyForPlugin,
   getApiToken,
   setApiToken,
+  isPluginEnabled,
 } from "../shared/storage";
+import type { PluginConfig } from "../content/plugins/types";
 
 describe("storage", () => {
   beforeEach(() => {
     resetStore();
+  });
+
+  describe("isPluginEnabled", () => {
+    const base: PluginConfig = {
+      id: "test",
+      name: "テスト",
+      description: "",
+      defaultEnabled: false,
+    };
+
+    it("設定がなければデフォルト値に従う", () => {
+      expect(isPluginEnabled(base, undefined)).toBe(false);
+      expect(isPluginEnabled({ ...base, defaultEnabled: true }, undefined)).toBe(true);
+    });
+
+    it("保存済みのOn/Offを優先する", () => {
+      expect(isPluginEnabled(base, { enabled: true })).toBe(true);
+      expect(isPluginEnabled({ ...base, defaultEnabled: true }, { enabled: false })).toBe(false);
+    });
+
+    it("alwaysOnは保存値に関係なく有効", () => {
+      expect(isPluginEnabled({ ...base, alwaysOn: true }, { enabled: false })).toBe(true);
+    });
   });
 
   describe("storageKeyForPlugin", () => {

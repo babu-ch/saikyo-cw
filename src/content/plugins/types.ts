@@ -11,6 +11,10 @@ export interface PluginConfig {
   apiKeyLabel?: string;
   /** デフォルトの有効/無効（必須・明示する） */
   defaultEnabled: boolean;
+  /** 常に有効。オプション画面にOn/Offトグルを出さない */
+  alwaysOn?: boolean;
+  /** オプション画面に単独のカードを出さず、指定したプラグインのカードの中でOn/Offする */
+  managedBy?: string;
 }
 
 export interface CwPlugin {
