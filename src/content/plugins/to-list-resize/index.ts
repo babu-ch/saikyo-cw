@@ -100,7 +100,8 @@ function startDrag(e: PointerEvent, list: HTMLElement, handle: HTMLElement): voi
     handle.removeEventListener("pointermove", onMove);
     handle.removeEventListener("pointerup", onUp);
     handle.removeEventListener("pointercancel", onUp);
-    void setPluginConfig(PLUGIN_ID, { height, reserved });
+    // つまみをクリックしただけ（高さが変わっていない）なら保存しない
+    if (height !== startHeight) void setPluginConfig(PLUGIN_ID, { height, reserved });
   };
 
   handle.setPointerCapture?.(e.pointerId);

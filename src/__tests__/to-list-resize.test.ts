@@ -99,6 +99,21 @@ describe("toListResizePlugin", () => {
     expect(await getPluginConfig("to-list-resize")).toEqual({ height: 360, reserved: 248 });
   });
 
+  it("つまみをクリックしただけでは高さを保存しない", async () => {
+    const list = setupToList();
+    toListResizePlugin.init();
+    await flush();
+
+    vi.spyOn(list.querySelector("._cwLTList")!, "getBoundingClientRect").mockReturnValue(rect(600, 160));
+    vi.spyOn(list, "getBoundingClientRect").mockReturnValue(rect(500, 264));
+    const handle = list.querySelector(HANDLE)!;
+    handle.dispatchEvent(new MouseEvent("pointerdown", { clientY: 600, bubbles: true }));
+    handle.dispatchEvent(new MouseEvent("pointerup", { clientY: 600, bubbles: true }));
+    await flush();
+
+    expect(await getPluginConfig("to-list-resize")).toBeUndefined();
+  });
+
   it("ダブルクリックで純正の高さに戻す", async () => {
     await setPluginConfig("to-list-resize", { height: 400, reserved: 250 });
     const list = setupToList();
