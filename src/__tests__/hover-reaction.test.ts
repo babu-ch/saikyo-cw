@@ -281,4 +281,46 @@ describe("hoverReactionPlugin", () => {
       });
     });
   });
+
+  describe("押す前から同じ形の小窓・一覧が残っているとき", () => {
+    // 別のメッセージの小窓や、入力欄側の絵文字一覧などを模したもの
+    function appendStale(list: HTMLElement): void {
+      list.querySelectorAll("button").forEach((btn) =>
+        btn.addEventListener("click", () => clicked.push("前から残っている")),
+      );
+      const root = document.createElement("div");
+      root.appendChild(list);
+      document.getElementById("_wrapper")!.appendChild(root);
+    }
+
+    it("小窓は押した後に開いたものから送る", async () => {
+      const nav = setupChatwork(clicked);
+      const stale = document.createElement("ul");
+      stale.setAttribute("data-testid", "reaction-list");
+      stale.innerHTML = `<li><button aria-label="ありがとう"></button></li>`;
+      appendStale(stale);
+      hoverReactionPlugin.init();
+      await flush();
+
+      (nav.nextElementSibling!.querySelector('[aria-label="ありがとう"]') as HTMLElement).click();
+      await flush(50);
+      expect(clicked).toEqual(["emo_bow.gif"]);
+    });
+
+    it("「すべてのリアクション」は押した後に開いた一覧から送る", async () => {
+      await setPluginConfig("hover-reaction", { display: "inline", reactions: ["emo_think.gif"] });
+      const nav = setupChatwork(clicked);
+      const stale = document.createElement("ul");
+      stale.innerHTML = ALL_REACTIONS.map(
+        (r) => `<li><button><img src="https://assets.example.com/images/emoticon2x/${r.emoticon}"></button></li>`,
+      ).join("");
+      appendStale(stale);
+      hoverReactionPlugin.init();
+      await flush();
+
+      (nav.querySelector('[aria-label="考えている顔"]') as HTMLElement).click();
+      await flush(50);
+      expect(clicked).toEqual(["emo_think.gif"]);
+    });
+  });
 });

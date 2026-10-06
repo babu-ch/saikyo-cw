@@ -1,7 +1,7 @@
 import type { CwPlugin } from "../types";
 import { CW } from "../../../shared/chatwork-selectors";
 import { observeActionNavs } from "../../../shared/mutation-observer";
-import { waitFor } from "../../../shared/dom-helpers";
+import { waitForNew } from "../../../shared/dom-helpers";
 import { hideUntilClosed } from "../../../shared/cw-popups";
 import {
   getPluginConfig,
@@ -203,17 +203,19 @@ function observeBadges(): MutationObserver {
   return mo;
 }
 
-function findQuickList(): Element | null {
-  return document.querySelector(QUICK_LIST);
+// 小窓・一覧は開くたびに新しい要素として描画されるので、waitForNew で押した後に現れたものだけを見る
+function findQuickLists(): NodeListOf<Element> {
+  return document.querySelectorAll(QUICK_LIST);
 }
 
 // 「すべてのリアクション」一覧にはtestidがないので、画像付きボタンが大量に並ぶulで見分ける
-function findAllList(): Element | null {
-  for (const ul of document.querySelectorAll("ul")) {
-    if (ul.closest(CW.MESSAGE) || ul.closest(CW.MESSAGE_ACTION_NAV)) continue;
-    if (ul.querySelectorAll(":scope > li > button > img").length >= 20) return ul;
-  }
-  return null;
+function findAllLists(): Element[] {
+  return Array.from(document.querySelectorAll("ul")).filter(
+    (ul) =>
+      !ul.closest(CW.MESSAGE) &&
+      !ul.closest(CW.MESSAGE_ACTION_NAV) &&
+      ul.querySelectorAll(":scope > li > button > img").length >= 20,
+  );
 }
 
 function findAllButton(quickList: Element): HTMLElement | null {
@@ -224,9 +226,8 @@ function findAllButton(quickList: Element): HTMLElement | null {
 async function sendViaPicker(actionNav: Element, r: Reaction): Promise<void> {
   const navBtn = findReactionLi(actionNav)?.querySelector("button");
   if (!navBtn) return;
-  navBtn.click();
 
-  const quickList = await waitFor(findQuickList);
+  const quickList = await waitForNew(findQuickLists, () => navBtn.click());
   if (!quickList) return;
 
   const quickTarget = findReactionButton(quickList, r);
@@ -239,9 +240,8 @@ async function sendViaPicker(actionNav: Element, r: Reaction): Promise<void> {
   const allBtn = findAllButton(quickList);
   if (!allBtn) return;
   hideUntilClosed(quickList);
-  allBtn.click();
 
-  const allList = await waitFor(findAllList);
+  const allList = await waitForNew(findAllLists, () => allBtn.click());
   const target = allList ? findReactionButton(allList, r) : null;
   // 見つからなければ一覧を見せたままにして、手で選べるようにする
   if (!allList || !target) return;
@@ -263,10 +263,12 @@ async function toggleReaction(actionNav: Element, r: Reaction): Promise<void> {
 async function openAllReactions(e: Event): Promise<void> {
   // sendViaPicker が押すとき（isTrusted=false）は対象外
   if (!e.isTrusted) return;
-  const quickList = await waitFor(findQuickList);
+  // 純正のクリックの処理中で、小窓はまだ描画されていない
+  const quickList = await waitForNew(findQuickLists, () => {});
   if (!quickList) return;
   const allBtn = findAllButton(quickList);
   if (!allBtn) return;
+  // 小窓は「すべてのリアクションを見る」を押すとDOMから外れ、一覧は別の箱に描画されるので、隠れるのは小窓だけ
   hideUntilClosed(quickList);
   allBtn.click();
 }
