@@ -59,6 +59,10 @@ npm run typecheck # 型チェック
 
 オプションページのトグルUIは自動で描画されます。
 
+## プライバシーポリシー
+
+[PRIVACY.md](PRIVACY.md)
+
 ## ライセンス
 
 MIT
