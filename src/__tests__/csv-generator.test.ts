@@ -1,5 +1,5 @@
 import { describe, it, expect } from "vitest";
-import { rowsToCsv } from "../shared/csv-generator";
+import { rowsToCsv, neutralizeFormula } from "../shared/csv-generator";
 
 describe("csv-generator", () => {
   describe("rowsToCsv", () => {
@@ -43,5 +43,28 @@ describe("csv-generator", () => {
       expect(csv.charCodeAt(0)).toBe(0xfeff);
       expect(csv.slice(1)).toBe("a");
     });
+  });
+});
+
+describe("csv-generator 数式インジェクション対策", () => {
+  it("= + - @ タブ CR で始まる文字列には ' を前置する", () => {
+    expect(neutralizeFormula("=HYPERLINK(\"http://evil\",\"x\")")).toBe("'=HYPERLINK(\"http://evil\",\"x\")");
+    expect(neutralizeFormula("+1")).toBe("'+1");
+    expect(neutralizeFormula("-1")).toBe("'-1");
+    expect(neutralizeFormula("@SUM(A1)")).toBe("'@SUM(A1)");
+    expect(neutralizeFormula("\t=1")).toBe("'\t=1");
+    expect(neutralizeFormula("\r=1")).toBe("'\r=1");
+  });
+
+  it("先頭が通常の文字ならそのまま", () => {
+    expect(neutralizeFormula("abc=1")).toBe("abc=1");
+    expect(neutralizeFormula("")).toBe("");
+    expect(neutralizeFormula("テスト太郎")).toBe("テスト太郎");
+  });
+
+  it("rowsToCsv は文字列フィールドにのみ適用し、数値はそのまま", () => {
+    const csv = rowsToCsv([["=cmd|' /C calc'!A0", -5, "ok"]], { bom: false });
+    // 先頭の ' はクォート対象文字ではないので、そのまま出る
+    expect(csv).toBe("'=cmd|' /C calc'!A0,-5,ok");
   });
 });

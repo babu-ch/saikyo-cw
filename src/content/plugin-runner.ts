@@ -1,5 +1,10 @@
 import type { CwPlugin } from "./plugins/types";
-import { getPluginSettings, isPluginEnabled, storageKeyForPlugin } from "../shared/storage";
+import {
+  getPluginSettings,
+  isPluginEnabled,
+  storageKeyForPlugin,
+  type PluginSettings,
+} from "../shared/storage";
 import { inputToolsPlugin } from "./plugins/input-tools";
 import { muteButtonPlugin } from "./plugins/mute-button";
 import { quickTaskPlugin } from "./plugins/quick-task";
@@ -54,7 +59,10 @@ export async function startPlugins(): Promise<void> {
       if (!change) continue;
 
       const wasEnabled = activePlugins.has(plugin.config.id);
-      const nowEnabled = isPluginEnabled(plugin.config, change.newValue);
+      const nowEnabled = isPluginEnabled(
+        plugin.config,
+        change.newValue as Partial<PluginSettings> | undefined,
+      );
 
       if (wasEnabled && !nowEnabled) {
         plugin.destroy();

@@ -1,5 +1,5 @@
 import type { CwPlugin } from "../types";
-import { escapeHtml } from "../../../shared/escape-html";
+import { html, setHtml } from "../../../shared/safe-html";
 import { getPluginConfig, storageKeyForPlugin } from "../../../shared/storage";
 
 export type ReplyThreadAlignment = "left" | "right";
@@ -264,7 +264,7 @@ function ensureBadge(parentId: string): void {
   badge.setAttribute("role", "button");
   badge.setAttribute("aria-label", "返信を表示");
   badge.dataset.parentId = parentId;
-  badge.innerHTML = `<span aria-hidden="true">💬</span><span class="scw-reply-thread-count"></span>`;
+  setHtml(badge, html`<span aria-hidden="true">💬</span><span class="scw-reply-thread-count"></span>`);
   applyBadgeAppearance(badge, entries.length);
 
   badge.addEventListener("click", (e) => {
@@ -320,16 +320,16 @@ function showPopover(anchor: HTMLElement, parentId: string): void {
     if (liveEl) {
       const name = getSpeakerName(liveEl);
       const preview = buildPreview(liveEl);
-      li.innerHTML = `
-        <div class="${POPOVER_CLASS}__name">${escapeHtml(name)}</div>
-        <div class="${POPOVER_CLASS}__preview">${escapeHtml(preview)}</div>
-      `;
+      setHtml(li, html`
+        <div class="${POPOVER_CLASS}__name">${name}</div>
+        <div class="${POPOVER_CLASS}__preview">${preview}</div>
+      `);
       li.addEventListener("click", () => {
         destroyPopover();
         scrollToMessage(entry.replyMessageId);
       });
     } else {
-      li.innerHTML = `<div class="${POPOVER_CLASS}__missing">表示範囲外（読み込まれていません）</div>`;
+      setHtml(li, html`<div class="${POPOVER_CLASS}__missing">表示範囲外（読み込まれていません）</div>`);
     }
 
     list.appendChild(li);

@@ -1,5 +1,5 @@
 import { PLUGIN_CONFIGS } from "../shared/plugin-configs";
-import { escapeHtml } from "../shared/escape-html";
+import { html, setHtml } from "../shared/safe-html";
 import { createRoomMemberPicker, updatePickerSelection } from "./room-member-picker";
 import {
   ALL_BUTTON_METAS,
@@ -41,21 +41,21 @@ function createPluginCard(
   const enabled = isPluginEnabled(config, settings);
   const toggle = config.alwaysOn
     ? ""
-    : `<label class="toggle">
-      <input type="checkbox" ${enabled ? "checked" : ""} data-plugin-id="${escapeHtml(config.id)}">
+    : html`<label class="toggle">
+      <input type="checkbox" ${enabled ? "checked" : ""} data-plugin-id="${config.id}">
       <span class="toggle-slider"></span>
     </label>`;
 
-  card.innerHTML = `
+  setHtml(card, html`
     <div class="plugin-info">
       <div class="plugin-name">
-        ${escapeHtml(config.name)}
-        ${config.requiresApiKey ? '<span class="api-required-badge">APIキー必須</span>' : ""}
+        ${config.name}
+        ${config.requiresApiKey ? html`<span class="api-required-badge">APIキー必須</span>` : ""}
       </div>
-      <div class="plugin-description">${escapeHtml(config.description)}</div>
+      <div class="plugin-description">${config.description}</div>
     </div>
     ${toggle}
-  `;
+  `);
 
   const checkbox = card.querySelector<HTMLInputElement>(
     '.toggle input[type="checkbox"]',
@@ -78,9 +78,9 @@ async function createInputToolsConfig(): Promise<HTMLElement> {
     config?.enabledButtons ?? getDefaultEnabledIds(),
   );
 
-  section.innerHTML = `
+  setHtml(section, html`
     <div class="button-config" style="margin-top: 8px;"></div>
-  `;
+  `);
 
   const container = section.querySelector(".button-config")!;
 
@@ -91,12 +91,12 @@ async function createInputToolsConfig(): Promise<HTMLElement> {
     const typeLabel =
       meta.type === "tag" ? "タグ" : meta.type === "emo" ? "絵文字" : "アクション";
 
-    label.innerHTML = `
-      <input type="checkbox" ${enabledIds.has(meta.id) ? "checked" : ""} data-button-id="${escapeHtml(meta.id)}">
-      <span class="button-config-label">${escapeHtml(meta.label)}</span>
-      <span class="button-config-desc">${escapeHtml(meta.description)}</span>
-      <span class="button-config-type">${escapeHtml(typeLabel)}</span>
-    `;
+    setHtml(label, html`
+      <input type="checkbox" ${enabledIds.has(meta.id) ? "checked" : ""} data-button-id="${meta.id}">
+      <span class="button-config-label">${meta.label}</span>
+      <span class="button-config-desc">${meta.description}</span>
+      <span class="button-config-type">${typeLabel}</span>
+    `);
 
     const cb = label.querySelector<HTMLInputElement>("input")!;
     cb.addEventListener("change", async () => {
@@ -152,12 +152,12 @@ async function createActionMenuConfig(
     more: "その他から",
   };
 
-  section.innerHTML = `
+  setHtml(section, html`
     <div class="action-menu-note">
       チェックを外した項目はメニューに出なくなります。「その他から」の項目はチェックすると「その他（…）」の手前に出て、「その他」の中からは消えます。中身が空になった「その他」は表示しません（他の人の発言はコピー・未読、自分の発言はそれに削除を加えた3つを出したとき）。
     </div>
     <div class="button-config"></div>
-  `;
+  `);
 
   const container = section.querySelector(".button-config")!;
 
@@ -167,12 +167,12 @@ async function createActionMenuConfig(
 
     const label = document.createElement("label");
     label.className = "button-config-item";
-    label.innerHTML = `
+    setHtml(label, html`
       <input type="checkbox" ${shown ? "checked" : ""}>
-      <span class="button-config-label">${escapeHtml(item.label)}</span>
-      <span class="button-config-desc">${escapeHtml(item.description)}</span>
-      <span class="button-config-type">${escapeHtml(typeLabels[item.type])}</span>
-    `;
+      <span class="button-config-label">${item.label}</span>
+      <span class="button-config-desc">${item.description}</span>
+      <span class="button-config-type">${typeLabels[item.type]}</span>
+    `);
 
     const cb = label.querySelector<HTMLInputElement>("input")!;
     cb.addEventListener("change", async () => {
@@ -233,31 +233,31 @@ async function createQuickTaskConfig(): Promise<HTMLElement> {
     { value: "here-message", label: "現チャットにURL+メッセージ (担当者=自分)" },
   ];
 
-  section.innerHTML = `
+  setHtml(section, html`
     <div style="margin-top: 8px;">
       <label class="api-key-label">動作モード</label>
       <select id="scw-task-mode" style="width: 100%; padding: 8px; border: 1px solid #ddd; border-radius: 6px; font-size: 13px; margin-top: 4px;">
-        ${modes.map((m) => `<option value="${escapeHtml(m.value)}" ${m.value === currentMode ? "selected" : ""}>${escapeHtml(m.label)}</option>`).join("")}
+        ${modes.map((m) => html`<option value="${m.value}" ${m.value === currentMode ? "selected" : ""}>${m.label}</option>`)}
       </select>
     </div>
     <div style="margin-top: 12px;">
       <label class="api-key-label">マイチャットのルームID</label>
       <input type="text" id="scw-task-chatid" class="api-key-input"
              placeholder="例: 12345678"
-             value="${escapeHtml(currentChatId)}">
+             value="${currentChatId}">
     </div>
     <div style="margin-top: 12px;">
       <label class="api-key-label">期限デフォルト（今日からの日数）</label>
       <input type="number" id="scw-task-deadline" class="api-key-input"
              min="-1" step="1"
              placeholder="3"
-             value="${escapeHtml(String(currentDeadline))}">
+             value="${String(currentDeadline)}">
       <div style="font-size: 11px; color: #888; margin-top: 4px;">0=今日、3=3日後、-1で期限なし</div>
     </div>
     <div style="font-size: 11px; color: #888; margin-top: 12px;">
       共通APIトークンを設定するとタスクAPI経由で登録します（画面遷移なし）。未設定時はマイチャットへ画面遷移して登録します。
     </div>
-  `;
+  `);
 
   section.querySelector("#scw-task-mode")!.addEventListener("change", async (e) => {
     const mode = (e.target as HTMLSelectElement).value;
@@ -307,19 +307,18 @@ async function createQuickDeleteConfig(): Promise<HTMLElement> {
     { value: "right", label: "時刻の右側" },
   ];
 
-  section.innerHTML = `
+  setHtml(section, html`
     <div style="margin-top: 8px;">
       <label class="api-key-label">×ボタンの位置</label>
       <div style="display: flex; gap: 16px; margin-top: 6px;">
         ${options
           .map(
-            (o) => `
+            (o) => html`
           <label style="display: inline-flex; align-items: center; gap: 4px; font-size: 13px; cursor: pointer;">
-            <input type="radio" name="scw-qd-position" value="${escapeHtml(o.value)}" ${o.value === currentPosition ? "checked" : ""}>
-            ${escapeHtml(o.label)}
+            <input type="radio" name="scw-qd-position" value="${o.value}" ${o.value === currentPosition ? "checked" : ""}>
+            ${o.label}
           </label>`,
-          )
-          .join("")}
+          )}
       </div>
       <div style="font-size: 11px; color: #888; margin-top: 4px;">設定変更は新規メッセージから反映されます</div>
     </div>
@@ -331,7 +330,7 @@ async function createQuickDeleteConfig(): Promise<HTMLElement> {
       </label>
       <div style="font-size: 11px; color: #888; margin-top: 4px;">OFFの場合は常に確認ダイアログを表示します。設定変更は新規メッセージから反映されます</div>
     </div>
-  `;
+  `);
 
   section.querySelectorAll<HTMLInputElement>('input[name="scw-qd-position"]').forEach((radio) => {
     radio.addEventListener("change", async () => {
@@ -368,9 +367,9 @@ async function createMentionGroupConfig(): Promise<HTMLElement> {
   const section = document.createElement("div");
 
   const data = await chrome.storage.sync.get(MG_STORAGE_KEY);
-  const groups: MgGroup[] = data[MG_STORAGE_KEY] || [];
+  const groups = (data[MG_STORAGE_KEY] as MgGroup[] | undefined) ?? [];
 
-  section.innerHTML = `
+  setHtml(section, html`
     <div class="plugin-description" style="margin-top: 8px;">
       グループ名を入力し、ルームからメンバーを選択して追加します。
     </div>
@@ -378,7 +377,7 @@ async function createMentionGroupConfig(): Promise<HTMLElement> {
     <div style="margin-top: 12px; display: flex; gap: 8px;">
       <button id="scw-mg-add" class="button-config-type" style="cursor: pointer; padding: 6px 12px; border: 1px solid #ddd; border-radius: 6px; background: #f8f8f8;">+ グループ追加</button>
     </div>
-  `;
+  `);
 
   const listEl = section.querySelector("#scw-mg-group-list")!;
 
@@ -388,32 +387,32 @@ async function createMentionGroupConfig(): Promise<HTMLElement> {
 
     const members: MgMember[] = group?.members ? [...group.members] : [];
 
-    card.innerHTML = `
+    setHtml(card, html`
       <div style="display: flex; align-items: center; gap: 8px; margin-bottom: 8px;">
-        <input type="text" class="scw-mg-name api-key-input" placeholder="グループ名（例: 開発チーム）" value="${escapeHtml(group?.name ?? "")}" style="flex: 1;">
+        <input type="text" class="scw-mg-name api-key-input" placeholder="グループ名（例: 開発チーム）" value="${group?.name ?? ""}" style="flex: 1;">
         <button class="scw-mg-delete" style="border: none; background: none; color: #ccc; cursor: pointer; font-size: 18px; padding: 2px 6px;">&times;</button>
       </div>
       <div class="scw-mg-picker-area"></div>
       <div class="scw-mg-chips" style="display:flex;flex-wrap:wrap;gap:6px;margin-top:8px;min-height:24px;"></div>
-    `;
+    `);
 
     const pickerArea = card.querySelector(".scw-mg-picker-area")!;
     const chipsEl = card.querySelector(".scw-mg-chips")!;
     const nameInput = card.querySelector<HTMLInputElement>(".scw-mg-name")!;
 
     function renderChips(): void {
-      chipsEl.innerHTML = "";
+      chipsEl.replaceChildren();
       if (members.length === 0) {
-        chipsEl.innerHTML = '<span style="font-size:12px;color:#888;">メンバーなし</span>';
+        setHtml(chipsEl, html`<span style="font-size:12px;color:#888;">メンバーなし</span>`);
         return;
       }
       for (const m of members) {
         const chip = document.createElement("span");
         chip.style.cssText = "display:inline-flex;align-items:center;gap:4px;padding:4px 8px;border-radius:999px;background:#fff;border:1px solid #eee;font-size:12px;font-weight:600;";
-        chip.innerHTML = `
-          ${escapeHtml(m.name)}
+        setHtml(chip, html`
+          ${m.name}
           <button data-remove-mid="${m.accountId}" style="border:none;background:none;cursor:pointer;color:#ccc;font-size:14px;padding:0 2px;">&times;</button>
-        `;
+        `);
         chip.querySelector("button")!.addEventListener("click", async () => {
           const idx = members.findIndex((x) => x.accountId === m.accountId);
           if (idx >= 0) members.splice(idx, 1);
@@ -506,7 +505,7 @@ async function createApiTokenSection(): Promise<HTMLElement> {
 
   const currentToken = await getApiToken();
 
-  section.innerHTML = `
+  setHtml(section, html`
     <div class="plugin-info">
       <div class="plugin-name">Chatwork APIトークン</div>
       <div class="plugin-description">
@@ -516,10 +515,10 @@ async function createApiTokenSection(): Promise<HTMLElement> {
       <div class="plugin-config" style="margin-top: 8px;">
         <input type="password" id="scw-api-token" class="api-key-input"
                placeholder="APIトークンを入力"
-               value="${escapeHtml(currentToken)}">
+               value="${currentToken}">
       </div>
     </div>
-  `;
+  `);
 
   const input = section.querySelector<HTMLInputElement>("#scw-api-token")!;
   let debounce: ReturnType<typeof setTimeout>;
@@ -548,7 +547,7 @@ async function createVipNotifyConfig(): Promise<HTMLElement> {
   const config = await getPluginConfig<{ vips?: VipEntry[] }>("vip-notify");
   const vips: VipEntry[] = config?.vips ?? [];
 
-  section.innerHTML = `
+  setHtml(section, html`
     <div class="plugin-description" style="margin-top: 8px;">
       ルームを選択してメンバーからVIPを登録します。バッジ色はVIPごとに設定できます。
     </div>
@@ -568,7 +567,7 @@ async function createVipNotifyConfig(): Promise<HTMLElement> {
       <label class="api-key-label">登録済みVIP</label>
       <div id="scw-vip-chips" style="display:flex;flex-wrap:wrap;gap:6px;margin-top:4px;min-height:24px;"></div>
     </div>
-  `;
+  `);
 
   let selectedColor = "#F44336";
 
@@ -621,21 +620,21 @@ async function createVipNotifyConfig(): Promise<HTMLElement> {
 
 function renderVipChips(container: HTMLElement, vips: VipEntry[]): void {
   const chipsEl = container.querySelector<HTMLElement>("#scw-vip-chips")!;
-  chipsEl.innerHTML = "";
+  chipsEl.replaceChildren();
 
   if (vips.length === 0) {
-    chipsEl.innerHTML = '<span style="font-size:12px;color:#888;">まだ追加されていません</span>';
+    setHtml(chipsEl, html`<span style="font-size:12px;color:#888;">まだ追加されていません</span>`);
     return;
   }
 
   for (const vip of vips) {
     const chip = document.createElement("span");
     chip.style.cssText = "display:inline-flex;align-items:center;gap:4px;padding:4px 8px;border-radius:999px;background:#fff;border:1px solid #eee;font-size:12px;font-weight:600;";
-    chip.innerHTML = `
-      <span style="width:10px;height:10px;border-radius:50%;background:${escapeHtml(vip.color)};flex-shrink:0;"></span>
-      ${escapeHtml(vip.name)}
+    setHtml(chip, html`
+      <span style="width:10px;height:10px;border-radius:50%;background:${vip.color};flex-shrink:0;"></span>
+      ${vip.name}
       <button data-remove-vip="${vip.accountId}" style="border:none;background:none;cursor:pointer;color:#ccc;font-size:14px;padding:0 2px;">&times;</button>
-    `;
+    `);
 
     chip.querySelector("button")!.addEventListener("click", async () => {
       const cfg = await getPluginConfig<{ vips?: VipEntry[] }>("vip-notify");
@@ -664,7 +663,7 @@ async function createAutoReadConfig(): Promise<HTMLElement> {
   const config = await getPluginConfig<{ autoReadRooms?: Record<string, AutoReadRoomConfig> }>("vip-notify");
   const autoReadRooms: Record<string, AutoReadRoomConfig> = config?.autoReadRooms ?? {};
 
-  section.innerHTML = `
+  setHtml(section, html`
     <div style="margin-top: 8px; padding: 10px 12px; background: #fff3e0; border: 1px solid #ffe0b2; border-radius: 8px; font-size: 12px; color: #e65100; line-height: 1.6;">
       <strong>注意:</strong> 有効にしたルームの未読メッセージは条件に基づいて<strong>自動的に既読</strong>になります。VIPの発言・自分宛てメッセージ・キーワードを含む発言は既読にしません。意図しない既読が発生する可能性があるため、設定は慎重に行ってください。
     </div>
@@ -698,7 +697,7 @@ async function createAutoReadConfig(): Promise<HTMLElement> {
         </p>
       </div>
     </div>
-  `;
+  `);
 
   // ルーム一覧取得
   const token = await getApiToken();
@@ -709,7 +708,7 @@ async function createAutoReadConfig(): Promise<HTMLElement> {
     const res = await chrome.runtime.sendMessage({ type: "fetchRooms", token });
     if (res?.ok && Array.isArray(res.rooms)) {
       allRooms = res.rooms.filter((r: { type: string }) => r.type === "group");
-      roomSelect.innerHTML = '<option value="">-- ルームを選択 --</option>';
+      setHtml(roomSelect, html`<option value="">-- ルームを選択 --</option>`);
       for (const room of allRooms) {
         const opt = document.createElement("option");
         opt.value = String(room.room_id);
@@ -717,10 +716,10 @@ async function createAutoReadConfig(): Promise<HTMLElement> {
         roomSelect.appendChild(opt);
       }
     } else {
-      roomSelect.innerHTML = '<option value="">-- 取得失敗 --</option>';
+      setHtml(roomSelect, html`<option value="">-- 取得失敗 --</option>`);
     }
   } else {
-    roomSelect.innerHTML = '<option value="">-- APIトークンを先に設定してください --</option>';
+    setHtml(roomSelect, html`<option value="">-- APIトークンを先に設定してください --</option>`);
   }
 
   const configPanel = section.querySelector<HTMLElement>("#scw-ar-room-config")!;
@@ -739,11 +738,11 @@ async function createAutoReadConfig(): Promise<HTMLElement> {
 
   function renderRoomChips(): void {
     const chipsEl = section.querySelector<HTMLElement>("#scw-ar-room-chips")!;
-    chipsEl.innerHTML = "";
+    chipsEl.replaceChildren();
 
     const entries = Object.entries(autoReadRooms).filter(([, cfg]) => cfg.enabled);
     if (entries.length === 0) {
-      chipsEl.innerHTML = '<span style="font-size:12px;color:#888;">まだ設定されていません</span>';
+      setHtml(chipsEl, html`<span style="font-size:12px;color:#888;">まだ設定されていません</span>`);
       return;
     }
 
@@ -752,10 +751,10 @@ async function createAutoReadConfig(): Promise<HTMLElement> {
       const name = room?.name ?? `ルーム ${roomId}`;
       const chip = document.createElement("span");
       chip.style.cssText = "display:inline-flex;align-items:center;gap:4px;padding:4px 8px;border-radius:999px;background:#e3f2fd;border:1px solid #bbdefb;font-size:12px;font-weight:600;cursor:pointer;";
-      chip.innerHTML = `
-        ${escapeHtml(name)} <small style="color:#888;">(${cfg.keywords.length}語)</small>
+      setHtml(chip, html`
+        ${name} <small style="color:#888;">(${cfg.keywords.length}語)</small>
         <button data-remove-ar="${roomId}" style="border:none;background:none;cursor:pointer;color:#ccc;font-size:14px;padding:0 2px;">&times;</button>
-      `;
+      `);
 
       chip.addEventListener("click", (e) => {
         if ((e.target as HTMLElement).tagName === "BUTTON") return;
@@ -779,22 +778,22 @@ async function createAutoReadConfig(): Promise<HTMLElement> {
   }
 
   function renderKeywordChips(): void {
-    keywordChips.innerHTML = "";
+    keywordChips.replaceChildren();
     const cfg = autoReadRooms[selectedRoomId];
     const keywords = cfg?.keywords ?? [];
 
     if (keywords.length === 0) {
-      keywordChips.innerHTML = '<span style="font-size:12px;color:#888;">キーワードなし（全て既読対象）</span>';
+      setHtml(keywordChips, html`<span style="font-size:12px;color:#888;">キーワードなし（全て既読対象）</span>`);
       return;
     }
 
     for (const kw of keywords) {
       const chip = document.createElement("span");
       chip.style.cssText = "display:inline-flex;align-items:center;gap:4px;padding:4px 8px;border-radius:999px;background:#fff;border:1px solid #eee;font-size:12px;font-weight:600;";
-      chip.innerHTML = `
-        ${escapeHtml(kw)}
+      setHtml(chip, html`
+        ${kw}
         <button style="border:none;background:none;cursor:pointer;color:#ccc;font-size:14px;padding:0 2px;">&times;</button>
-      `;
+      `);
       chip.querySelector("button")!.addEventListener("click", async () => {
         const c = autoReadRooms[selectedRoomId];
         if (c) {
@@ -880,7 +879,7 @@ async function createReplyThreadConfig(): Promise<HTMLElement> {
   const isLeft = (config?.alignment ?? "right") === "left";
   const compact = config?.compact ?? false;
 
-  section.innerHTML = `
+  setHtml(section, html`
     <div style="margin-top: 8px; display: flex; gap: 16px; align-items: center;">
       <label style="display: flex; align-items: center; gap: 6px; cursor: pointer;">
         <input type="radio" name="scw-rt-align" value="left" ${isLeft ? "checked" : ""}>
@@ -898,7 +897,7 @@ async function createReplyThreadConfig(): Promise<HTMLElement> {
         <span class="toggle-slider"></span>
       </label>
     </div>
-  `;
+  `);
 
   section
     .querySelectorAll<HTMLInputElement>('input[name="scw-rt-align"]')
@@ -940,7 +939,7 @@ async function createHoverReactionConfig(): Promise<HTMLElement> {
   let alignment = config?.alignment === "left" ? "left" : "right";
   const stopAnimation = config?.stopAnimation ?? false;
 
-  section.innerHTML = `
+  setHtml(section, html`
     <div class="reaction-config-label">表示位置</div>
     <div class="reaction-config-options">
       <label><input type="radio" name="scw-hr-display" value="below" ${display === "below" ? "checked" : ""}> メニューの下の段</label>
@@ -963,7 +962,7 @@ async function createHoverReactionConfig(): Promise<HTMLElement> {
         <span class="toggle-slider"></span>
       </label>
     </div>
-  `;
+  `);
 
   const previewEl = section.querySelector<HTMLElement>(".reaction-preview")!;
   const previewMenuEl = section.querySelector<HTMLElement>(".reaction-preview-menu")!;
@@ -1236,7 +1235,7 @@ async function createHoverReactionConfig(): Promise<HTMLElement> {
 function createCollapsible(label: string, content: HTMLElement): DocumentFragment {
   const toggle = document.createElement("button");
   toggle.className = "plugin-config-toggle";
-  toggle.innerHTML = `<span class="arrow">&#9654;</span> ${escapeHtml(label)}`;
+  setHtml(toggle, html`<span class="arrow">&#9654;</span> ${label}`);
 
   const section = document.createElement("div");
   section.className = "plugin-config-section";

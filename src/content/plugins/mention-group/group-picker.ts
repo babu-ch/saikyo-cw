@@ -1,7 +1,6 @@
-import { getPluginConfig } from "../../../shared/storage";
 import { hideToast, showToast } from "../../../shared/toast";
+import { html, setHtml } from "../../../shared/safe-html";
 
-const PLUGIN_ID = "mention-group";
 const STYLE_ID = "scw-mention-group-style";
 const BTN_ID = "scw-mention-group-btn";
 const DROPDOWN_ID = "scw-mention-group-dropdown";
@@ -237,7 +236,7 @@ function showGroupDropdown(anchorEl: HTMLElement): void {
   closeDropdown();
 
   chrome.storage.sync.get(STORAGE_KEY, (data) => {
-    const groups: MentionGroup[] = data[STORAGE_KEY] || [];
+    const groups = (data[STORAGE_KEY] as MentionGroup[] | undefined) ?? [];
 
     const menu = document.createElement("div");
     menu.id = DROPDOWN_ID;
@@ -329,12 +328,12 @@ export function injectGroupPicker(): void {
   const btn = document.createElement("button");
   btn.id = BTN_ID;
   btn.setAttribute("aria-label", "クイックメンション：登録メンバーに一括メンション");
-  btn.innerHTML = `<svg viewBox="0 0 10 10" width="16" height="16" aria-hidden="true">
+  setHtml(btn, html`<svg viewBox="0 0 10 10" width="16" height="16" aria-hidden="true">
     <circle cx="3.2" cy="2.5" r="1.5"/>
     <path d="M0.5 7.5C0.5 5.8 1.7 5 3.2 5s2.7.8 2.7 2.5v.5H0.5z"/>
     <circle cx="7" cy="2.5" r="1.3"/>
     <path d="M4.8 7.5C4.8 5.8 5.8 5 7 5s2.2.8 2.2 2.5v.5H4.8z"/>
-  </svg>`;
+  </svg>`);
 
   btn.addEventListener("click", (e) => {
     e.preventDefault();
@@ -396,7 +395,7 @@ export function injectAddToGroupButton(profileBtn: Element): void {
     document.querySelectorAll(`.${ADD_DROPDOWN_CLASS}`).forEach((el) => el.remove());
 
     chrome.storage.sync.get(STORAGE_KEY, (data) => {
-      const groups: MentionGroup[] = data[STORAGE_KEY] || [];
+      const groups = (data[STORAGE_KEY] as MentionGroup[] | undefined) ?? [];
 
       const dropdown = document.createElement("div");
       dropdown.className = ADD_DROPDOWN_CLASS;

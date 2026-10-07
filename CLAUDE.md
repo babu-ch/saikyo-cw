@@ -12,6 +12,7 @@ npm run build      # ビルド（content→background→optionsの3段階）
 npm run package    # ビルド + dist/をzip化（saikyo-cw.zip）
 npm test           # vitest実行
 npm run typecheck  # tsc --noEmit
+npm run lint       # eslint（buildの最初にも実行される）
 ```
 
 ## ビルド構成
@@ -57,7 +58,8 @@ ChatworkのDOMは内部クラス名が頻繁に変わる + React仮想DOMで構�
 
 ## セキュリティルール
 
-- **innerHTML**: 値を埋め込む場合は必ず`escapeHtml()`を通す。`textContent`で済む場合はそちらを使う
+- **innerHTML / outerHTML / insertAdjacentHTML / document.write**: 直接使用禁止（ESLintの`no-restricted-syntax`で検出し、`npm run lint`と`npm run build`が失敗する）。HTMLを組み立てるときは`src/shared/safe-html.ts`の `html\`...\`` タグ付きテンプレートで作り、`setHtml(el, ...)`で流し込む。`${}`に入れた文字列・数値は自動でエスケープされ、入れ子は`html\`\``の結果かその配列を渡す。文字列だけなら`textContent`、空にするなら`replaceChildren()`を使う
+- **CSV出力**: 他人が書いた文字列をCSVに出すときは`src/shared/csv-generator.ts`の`rowsToCsv`を使う（`= + - @` タブ CRで始まるフィールドに`'`を前置して数式インジェクションを防ぐ）。独自にCSVを組み立てない
 - **メッセージハンドラ**: `chrome.runtime.onMessage`のリスナーでは`sender.url`が自拡張またはchatwork.comであることを検証する
 - **URL補間**: ユーザー入力やメッセージ経由の値をURL文字列に埋め込む前に形式をバリデーションする（例: roomIdは`/^\d+$/`）
 - **ログ**: ユーザー名・アカウントIDなどの個人情報をログに含めない

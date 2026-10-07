@@ -7,9 +7,18 @@
 
 export type CsvRow = ReadonlyArray<string | number | boolean | null | undefined>;
 
+// Excel等が数式として評価する先頭文字（= + - @ タブ CR）。
+// チャット本文は他人が書いた文字列なので、そのままCSVに出すと数式インジェクションになる。
+const FORMULA_TRIGGER = /^[=+\-@\t\r]/;
+
+/** 数式として評価される先頭文字を持つ文字列に ' を前置して無害化する */
+export function neutralizeFormula(s: string): string {
+  return FORMULA_TRIGGER.test(s) ? `'${s}` : s;
+}
+
 function escapeField(v: string | number | boolean | null | undefined): string {
   if (v === null || v === undefined) return "";
-  const s = String(v);
+  const s = typeof v === "string" ? neutralizeFormula(v) : String(v);
   if (/[",\r\n]/.test(s)) {
     return `"${s.replace(/"/g, '""')}"`;
   }

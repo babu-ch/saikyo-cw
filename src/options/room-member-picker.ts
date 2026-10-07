@@ -1,5 +1,5 @@
 import { getApiToken } from "../shared/storage";
-import { escapeHtml } from "../shared/escape-html";
+import { html, setHtml } from "../shared/safe-html";
 
 export interface PickedMember {
   accountId: number;
@@ -56,27 +56,26 @@ export async function createRoomMemberPicker(opts: RoomMemberPickerOptions): Pro
   const { prefix, selectedIds, onChange } = opts;
   const container = document.createElement("div");
 
-  const safePrefix = escapeHtml(prefix);
-  container.innerHTML = `
+  setHtml(container, html`
     <div style="margin-top: 8px;">
       <label class="api-key-label">ルームを選んでメンバーを表示</label>
-      <select id="${safePrefix}-room-select" class="api-key-input" style="margin-top: 4px;">
+      <select id="${prefix}-room-select" class="api-key-input" style="margin-top: 4px;">
         <option value="">-- ルーム読み込み中... --</option>
       </select>
     </div>
     <div style="margin-top: 12px;">
       <label class="api-key-label">メンバーから選択</label>
-      <div id="${safePrefix}-member-list" style="max-height: 200px; overflow-y: auto; margin-top: 4px; border: 1px solid #eee; border-radius: 6px;"></div>
-      <p id="${safePrefix}-member-helper" style="font-size: 11px; color: #888; margin-top: 4px;"></p>
+      <div id="${prefix}-member-list" style="max-height: 200px; overflow-y: auto; margin-top: 4px; border: 1px solid #eee; border-radius: 6px;"></div>
+      <p id="${prefix}-member-helper" style="font-size: 11px; color: #888; margin-top: 4px;"></p>
     </div>
-  `;
+  `);
 
   const roomSelect = container.querySelector<HTMLSelectElement>(`#${prefix}-room-select`)!;
 
   // ルーム一覧取得
   const rooms = await fetchRooms();
   if (rooms) {
-    roomSelect.innerHTML = '<option value="">-- ルームを選択 --</option>';
+    setHtml(roomSelect, html`<option value="">-- ルームを選択 --</option>`);
     const groupRooms = rooms.filter((r) => r.type === "group");
     for (const room of groupRooms) {
       const opt = document.createElement("option");
@@ -86,9 +85,12 @@ export async function createRoomMemberPicker(opts: RoomMemberPickerOptions): Pro
     }
   } else {
     const token = await getApiToken();
-    roomSelect.innerHTML = token
-      ? '<option value="">-- 取得失敗（APIトークンを確認してください） --</option>'
-      : '<option value="">-- APIトークンを先に設定してください --</option>';
+    setHtml(
+      roomSelect,
+      token
+        ? html`<option value="">-- 取得失敗（APIトークンを確認してください） --</option>`
+        : html`<option value="">-- APIトークンを先に設定してください --</option>`,
+    );
   }
 
   // ルーム選択時にメンバー表示
@@ -98,7 +100,7 @@ export async function createRoomMemberPicker(opts: RoomMemberPickerOptions): Pro
     const helper = container.querySelector<HTMLElement>(`#${prefix}-member-helper`)!;
 
     if (!roomId) {
-      memberList.innerHTML = "";
+      memberList.replaceChildren();
       helper.textContent = "";
       return;
     }
@@ -111,17 +113,17 @@ export async function createRoomMemberPicker(opts: RoomMemberPickerOptions): Pro
       return;
     }
 
-    memberList.innerHTML = "";
+    memberList.replaceChildren();
     helper.textContent = `${members.length}人`;
 
     for (const member of members) {
       const isSelected = selectedIds?.has(member.account_id) ?? false;
       const row = document.createElement("label");
       row.style.cssText = "display:flex;align-items:center;gap:8px;padding:6px 10px;cursor:pointer;border-bottom:1px solid #f0f0f0;font-size:13px;";
-      row.innerHTML = `
-        <input type="checkbox" ${isSelected ? "checked" : ""} data-aid="${member.account_id}" data-name="${escapeHtml(member.name)}">
-        <span><strong>${escapeHtml(member.name)}</strong> <small style="color:#888;">ID: ${member.account_id}</small></span>
-      `;
+      setHtml(row, html`
+        <input type="checkbox" ${isSelected ? "checked" : ""} data-aid="${member.account_id}" data-name="${member.name}">
+        <span><strong>${member.name}</strong> <small style="color:#888;">ID: ${member.account_id}</small></span>
+      `);
 
       const cb = row.querySelector<HTMLInputElement>("input")!;
       cb.addEventListener("change", () => {
