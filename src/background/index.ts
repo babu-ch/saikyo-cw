@@ -25,14 +25,14 @@ function cwExportPrune(arr: number[]): void {
   while (arr.length && arr[0]! < cutoff) arr.shift();
 }
 
-function cwExportOnStart(details: chrome.webRequest.WebRequestDetails): void {
+function cwExportOnStart(details: { tabId: number }): void {
   if (details.tabId < 0) return;
   const s = cwExportGetState(details.tabId);
   s.starts.push(Date.now());
   cwExportPrune(s.starts);
 }
 
-function cwExportOnEnd(details: chrome.webRequest.WebRequestDetails): void {
+function cwExportOnEnd(details: { tabId: number }): void {
   if (details.tabId < 0) return;
   const s = cwExportGetState(details.tabId);
   s.ends.push(Date.now());
@@ -47,7 +47,10 @@ const CW_EXPORT_FILTER: chrome.webRequest.RequestFilter = {
   types: ["xmlhttprequest"],
 };
 
-chrome.webRequest.onBeforeRequest.addListener(cwExportOnStart, CW_EXPORT_FILTER);
+chrome.webRequest.onBeforeRequest.addListener((details) => {
+  cwExportOnStart(details);
+  return undefined;
+}, CW_EXPORT_FILTER);
 chrome.webRequest.onCompleted.addListener(cwExportOnEnd, CW_EXPORT_FILTER);
 chrome.webRequest.onErrorOccurred.addListener(cwExportOnEnd, CW_EXPORT_FILTER);
 
@@ -83,9 +86,10 @@ interface AutoReadRoom {
 
 async function getAutoReadConfig(): Promise<Record<string, AutoReadRoomConfig>> {
   const key = `${PLUGIN_PREFIX}${AUTO_READ_PLUGIN_ID}`;
-  const data = await chrome.storage.sync.get(key);
-  const config = data[key]?.config;
-  return config?.autoReadRooms ?? {};
+  const data = await chrome.storage.sync.get<
+    Record<string, { config?: { autoReadRooms?: Record<string, AutoReadRoomConfig> } } | undefined>
+  >(key);
+  return data[key]?.config?.autoReadRooms ?? {};
 }
 
 function isValidRoomId(id: unknown): id is string {
@@ -155,15 +159,17 @@ async function handleAutoRead(
   const readRooms: string[] = [];
 
   for (const room of rooms) {
+    // URLに埋め込む前に形式を検証する（messagesが渡された経路でも必ず通す）
+    if (!isValidRoomId(room.roomId)) continue;
     const config = autoReadConfig[room.roomId];
-    warn(`autoRead room=${room.roomId}, config=`, config);
+    log(`autoRead room=${room.roomId}, config=`, config);
     if (!config?.enabled) continue;
 
     // メッセージ取得（content.jsから渡されていればそれを使う）
     let messages = room.messages;
     if (!messages) {
       try {
-        warn(`autoRead fetching messages for room=${room.roomId}`);
+        log(`autoRead fetching messages for room=${room.roomId}`);
         messages = await fetchMessagesForRoom(room.roomId, token);
       } catch (e) {
         warn(`autoRead fetchMessages failed room=${room.roomId}`, e);
@@ -175,14 +181,14 @@ async function handleAutoRead(
 
     // 未読分のメッセージだけ判定（末尾からunreadCount件）
     const candidates = messages.slice(-room.unreadCount);
-    warn(`autoRead room=${room.roomId}, messages=${messages.length}, candidates=${candidates.length}`);
+    log(`autoRead room=${room.roomId}, messages=${messages.length}, candidates=${candidates.length}`);
 
     // 全未読メッセージが既読対象かチェック
     const allAutoRead = candidates.every(
       (msg) => !shouldKeepMessage(msg, vipIds, myAccountId, config.keywords),
     );
 
-    warn(`autoRead room=${room.roomId}, allAutoRead=${allAutoRead}`);
+    log(`autoRead room=${room.roomId}, allAutoRead=${allAutoRead}`);
     if (!allAutoRead) continue;
 
     // 全部既読対象 → 最新メッセージIDで既読化
@@ -194,7 +200,7 @@ async function handleAutoRead(
     const latestMsgId = sorted[sorted.length - 1].message_id;
 
     try {
-      warn(`autoRead marking read room=${room.roomId}, msgId=${latestMsgId}`);
+      log(`autoRead marking read room=${room.roomId}, msgId=${latestMsgId}`);
       const res = await fetch(
         `https://api.chatwork.com/v2/rooms/${room.roomId}/messages/read`,
         {
@@ -206,7 +212,7 @@ async function handleAutoRead(
           body: new URLSearchParams({ message_id: latestMsgId }).toString(),
         },
       );
-      warn(`autoRead PUT result room=${room.roomId}, status=${res.status}`);
+      log(`autoRead PUT result room=${room.roomId}, status=${res.status}`);
       if (res.ok) {
         readRooms.push(room.roomId);
       }

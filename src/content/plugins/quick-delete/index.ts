@@ -1,5 +1,4 @@
 import type { CwPlugin } from "../types";
-import { CW } from "../../../shared/chatwork-selectors";
 import { observeDOM } from "../../../shared/mutation-observer";
 import { getApiToken, getPluginConfig, storageKeyForPlugin } from "../../../shared/storage";
 import { showToast } from "../../../shared/toast";

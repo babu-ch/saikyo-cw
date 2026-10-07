@@ -53,7 +53,8 @@ function getRoomName(): string {
 
 function sanitizeFilename(name: string): string {
   return name
-    .replace(/[\/\\:*?"<>|\x00-\x1f]/g, "_")
+    // eslint-disable-next-line no-control-regex -- ファイル名に使えない制御文字を意図的に落とす
+    .replace(/[/\\:*?"<>|\x00-\x1f]/g, "_")
     .replace(/\s+/g, " ")
     .replace(/^[\s_]+|[\s_]+$/g, "")
     .slice(0, 80);
