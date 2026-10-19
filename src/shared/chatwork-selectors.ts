@@ -24,6 +24,11 @@ export const CW = {
   ROOM_TITLE: "#_roomTitle",
   CHAT_CONTENT: "#_chatContent",
   MAIN_CONTENT: "#_mainContent",
+  /** 右の欄の「Chatwork AI」（AI要約・AI下書き・行政の配信ニュースの資料化） */
+  AI_PANEL: "#_subAiArea",
+  /** 入力欄の「Chatwork AI」ボタン。文言変更に備えてアイコンで見分け、ツールチップのwrapperごと隠す */
+  AI_INPUT_BUTTON:
+    '[data-testid="message-input-area"] ._showDescription:has(use[href="#icon_sparklesMono"])',
 } as const;
 
 /**

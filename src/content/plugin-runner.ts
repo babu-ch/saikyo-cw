@@ -20,6 +20,7 @@ import { quickDeletePlugin } from "./plugins/quick-delete";
 import { linkCopyPlugin } from "./plugins/link-copy";
 import { actionMenuPlugin } from "./plugins/action-menu";
 import { toListResizePlugin } from "./plugins/to-list-resize";
+import { hideChatworkAiPlugin } from "./plugins/hide-chatwork-ai";
 
 const ALL_PLUGINS: CwPlugin[] = [
   inputToolsPlugin,
@@ -37,6 +38,7 @@ const ALL_PLUGINS: CwPlugin[] = [
   linkCopyPlugin,
   actionMenuPlugin,
   toListResizePlugin,
+  hideChatworkAiPlugin,
 ];
 
 const activePlugins = new Map<string, CwPlugin>();
