@@ -106,4 +106,11 @@ export const PLUGIN_CONFIGS: PluginConfig[] = [
       "TOのメンバー一覧の上端をドラッグして縦に広げられる。広げた高さは次から覚えておく（上端のダブルクリックで元の高さに戻す）。",
     defaultEnabled: true,
   },
+  {
+    id: "hide-chatwork-ai",
+    name: "Chatwork AIを隠す",
+    description:
+      "右の欄の「Chatwork AI」（AI要約・AI下書き・行政の配信ニュース）と、入力欄の「Chatwork AI」ボタンを隠す。どちらかを残すこともできる。メッセージのメニューの「AI下書き」はアクションメニューの設定で隠せる。",
+    defaultEnabled: false,
+  },
 ];

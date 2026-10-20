@@ -925,6 +925,45 @@ async function createReplyThreadConfig(): Promise<HTMLElement> {
   return section;
 }
 
+async function createHideChatworkAiConfig(): Promise<HTMLElement> {
+  const section = document.createElement("div");
+
+  type HideChatworkAiConfig = { keepPanel?: boolean; keepInputButton?: boolean };
+  const config = await getPluginConfig<HideChatworkAiConfig>("hide-chatwork-ai");
+  const places: { key: keyof HideChatworkAiConfig; label: string; note: string }[] = [
+    { key: "keepPanel", label: "右の欄", note: "AI要約・AI下書き・行政の配信ニュース" },
+    { key: "keepInputButton", label: "入力欄のボタン", note: "絵文字・ファイルの隣の✦" },
+  ];
+
+  setHtml(section, html`
+    ${places.map(
+      (p, i) => html`
+    <div style="margin-top: ${i === 0 ? 8 : 12}px; display: flex; align-items: center; justify-content: space-between; gap: 12px;">
+      <span>${p.label}を隠す<span style="color: #888; font-size: 11px; margin-left: 6px;">（${p.note}）</span></span>
+      <label class="toggle">
+        <input type="checkbox" data-key="${p.key}" ${config?.[p.key] ? "" : "checked"}>
+        <span class="toggle-slider"></span>
+      </label>
+    </div>`,
+    )}
+  `);
+
+  const inputs = [...section.querySelectorAll<HTMLInputElement>("input[data-key]")];
+  inputs.forEach((input) => {
+    input.addEventListener("change", async () => {
+      const place = places.find((p) => p.key === input.dataset.key);
+      if (!place) return;
+      // 続けて切り替えても前の変更を上書きしないよう、ストレージを読み直さず両方のスイッチから組み立てる
+      const next: HideChatworkAiConfig = {};
+      for (const i of inputs) next[i.dataset.key as keyof HideChatworkAiConfig] = !i.checked;
+      await setPluginConfig("hide-chatwork-ai", next);
+      showStatus(`${place.label}を${input.checked ? "隠します" : "表示します"}`);
+    });
+  });
+
+  return section;
+}
+
 async function createHoverReactionConfig(): Promise<HTMLElement> {
   const section = document.createElement("div");
 
@@ -1281,6 +1320,9 @@ async function renderPluginCard(
   }
   if (config.id === "quick-delete") {
     appendCollapsible(card, "表示設定", await createQuickDeleteConfig());
+  }
+  if (config.id === "hide-chatwork-ai") {
+    appendCollapsible(card, "隠す場所", await createHideChatworkAiConfig());
   }
 }
 
